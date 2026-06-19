@@ -2,38 +2,31 @@ import { useEffect, useRef } from "react";
 import {
   Animated,
   Image,
-  Platform,
   StatusBar,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
 
-const NAVY = "#0B1E3F";
+const NAVY = "#1E3A5F";
+const BLUE = "#4A90D9";
 
 export default function SplashScreen() {
   const router = useRouter();
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoTranslate = useRef(new Animated.Value(8)).current;
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
+    Animated.sequence([
       Animated.timing(logoOpacity, {
         toValue: 1,
-        duration: 900,
+        duration: 1000,
         useNativeDriver: true,
       }),
-      Animated.timing(logoTranslate, {
-        toValue: 0,
-        duration: 900,
-        useNativeDriver: true,
-      }),
-      Animated.timing(taglineOpacity, {
+      Animated.delay(500),
+      Animated.timing(textOpacity, {
         toValue: 1,
-        delay: 500,
-        duration: 800,
+        duration: 600,
         useNativeDriver: true,
       }),
     ]).start();
@@ -43,35 +36,38 @@ export default function SplashScreen() {
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [logoOpacity, logoTranslate, taglineOpacity, router]);
+  }, [logoOpacity, textOpacity, router]);
 
   return (
     <View style={styles.container} testID="splash-screen">
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <Animated.View
-        style={[
-          styles.logoWrapper,
-          {
-            opacity: logoOpacity,
-            transform: [{ translateY: logoTranslate }],
-          },
-        ]}
-        testID="splash-logo"
-      >
-        <Image
-          source={require("../assets/images/myshield-logo.png")}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </Animated.View>
+      <View style={styles.center}>
+        <Animated.View
+          style={[styles.logoWrap, { opacity: logoOpacity }]}
+          testID="splash-logo"
+        >
+          <Image
+            source={require("../assets/images/myshield-logo-clean.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </Animated.View>
 
-      <Animated.Text
-        style={[styles.tagline, { opacity: taglineOpacity }]}
-        testID="splash-tagline"
-      >
-        Emergency Help When Every Second Matters
-      </Animated.Text>
+        <Animated.Text
+          style={[styles.eyebrow, { opacity: textOpacity }]}
+          testID="splash-eyebrow"
+        >
+          EMERGENCY RESPONSE & SAFETY
+        </Animated.Text>
+
+        <Animated.Text
+          style={[styles.tagline, { opacity: textOpacity }]}
+          testID="splash-tagline"
+        >
+          Emergency Help When Every Second Matters
+        </Animated.Text>
+      </View>
     </View>
   );
 }
@@ -80,13 +76,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  center: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
   },
-  logoWrapper: {
-    width: "85%",
-    aspectRatio: 1,
+  logoWrap: {
+    width: 200,
+    height: 200,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -94,17 +93,19 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  tagline: {
-    marginTop: 24,
-    fontSize: 16,
+  eyebrow: {
+    marginTop: 12,
+    fontSize: 11,
     color: NAVY,
     textAlign: "center",
-    letterSpacing: 0.3,
+    letterSpacing: 3,
+    fontWeight: "600",
+  },
+  tagline: {
+    marginTop: 28,
+    fontSize: 15,
+    color: BLUE,
+    textAlign: "center",
     fontWeight: "500",
-    fontFamily: Platform.select({
-      ios: "System",
-      android: "sans-serif-medium",
-      default: "System",
-    }),
   },
 });
