@@ -162,9 +162,7 @@ export default function Register() {
           </View>
 
           <Pressable
-            onPress={() => {
-              /* placeholder: hook into auth later */
-            }}
+            onPress={() => router.push("/photo-upload")}
             style={({ pressed }) => [styles.continueBtn, pressed && { opacity: 0.9 }]}
             testID="register-continue-btn"
           >
