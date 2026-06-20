@@ -71,8 +71,8 @@ export default function SplashScreen() {
     pulse.start();
 
     const timer = setTimeout(() => {
-      router.replace("/home");
-    }, 6000);
+      router.replace("/welcome");
+    }, 5000);
 
     return () => {
       clearTimeout(timer);
