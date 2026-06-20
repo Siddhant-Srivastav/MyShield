@@ -31,7 +31,7 @@ const SKYLINE_PATH =
 export default function Welcome() {
   const router = useRouter();
   const { height, width } = useWindowDimensions();
-  const heroHeight = useMemo(() => Math.round(height * 0.42), [height]);
+  const heroHeight = useMemo(() => Math.round(height * 0.38), [height]);
   const heroWidth = Math.min(width, 600);
 
   // Wave shape: convex dome at bottom of hero curving INTO bottom section
@@ -295,41 +295,41 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   headingDark: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: "700",
     color: "#1A1A2E",
   },
   headingBlue: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: "700",
     color: "#1A56DB",
   },
   subtitle: {
     marginTop: 8,
-    fontSize: 13,
+    fontSize: 11,
     color: "#6B7280",
     textAlign: "center",
-    lineHeight: 18,
+    lineHeight: 16,
   },
   features: {
     flexDirection: "row",
     justifyContent: "space-evenly",
-    marginTop: 20,
+    marginTop: 12,
   },
   feature: {
     alignItems: "center",
     width: 96,
   },
   featureCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
   },
   featureLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
@@ -341,8 +341,8 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
   primaryBtn: {
-    marginTop: 24,
-    height: 56,
+    marginTop: 14,
+    height: 50,
     backgroundColor: "#1A3A6C",
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -357,8 +357,8 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   secondaryBtn: {
-    marginTop: 14,
-    height: 56,
+    marginTop: 10,
+    height: 50,
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     borderWidth: 2,
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     height: 22,
   },
   security: {
-    marginTop: 14,
+    marginTop: 10,
     alignItems: "center",
   },
   securityRow: {
