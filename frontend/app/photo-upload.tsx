@@ -109,7 +109,7 @@ export default function PhotoUpload() {
           ) : (
             <View style={styles.placeholder} testID="photo-placeholder">
               <View style={styles.dashedOval}>
-                <Ionicons name="person" size={120} color="#3F3F46" />
+                <Ionicons name="person" size={90} color="#3F3F46" />
               </View>
             </View>
           )}
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   photoBox: {
     marginTop: 14,
     width: "100%",
-    height: 320,
+    height: 240,
     backgroundColor: "#000000",
     borderRadius: 24,
     overflow: "hidden",
@@ -204,43 +204,43 @@ const styles = StyleSheet.create({
   },
   pill: {
     position: "absolute",
-    top: 14,
+    top: 10,
     alignSelf: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 999,
     backgroundColor: "rgba(0,0,0,0.45)",
     zIndex: 2,
   },
-  pillText: { color: "#FFFFFF", fontSize: 11, fontWeight: "500" },
+  pillText: { color: "#FFFFFF", fontSize: 10, fontWeight: "500" },
   cornerBtn: {
     position: "absolute",
-    top: 14,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
   },
-  cornerLeft: { left: 14 },
-  cornerRight: { right: 14 },
+  cornerLeft: { left: 10 },
+  cornerRight: { right: 10 },
   placeholder: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   dashedOval: {
-    width: 220,
-    height: 240,
-    borderRadius: 120,
+    width: 165,
+    height: 180,
+    borderRadius: 90,
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.85)",
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "flex-end",
-    paddingBottom: 8,
+    paddingBottom: 6,
     overflow: "hidden",
   },
   preview: { width: "100%", height: "100%" },
