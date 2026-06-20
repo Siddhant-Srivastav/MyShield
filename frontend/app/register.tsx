@@ -31,7 +31,7 @@ export default function Register() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
-  const heroHeight = useMemo(() => Math.round(height * 0.32), [height]);
+  const heroHeight = useMemo(() => Math.round(height * 0.30), [height]);
   const heroWidth = Math.min(width, 600);
   const waveHeight = 40;
   const wavePath = `M0,${waveHeight} Q${heroWidth / 2},0 ${heroWidth},${waveHeight} L${heroWidth},${waveHeight} L0,${waveHeight} Z`;
@@ -130,22 +130,25 @@ export default function Register() {
 
           <View style={styles.field}>
             <Text style={styles.label}>Mobile Number</Text>
-            <View style={styles.input}>
-              <MaterialCommunityIcons name="cellphone" size={20} color="#1A56DB" />
-              <Text style={styles.cc}>+91</Text>
-              <Ionicons name="chevron-down" size={14} color="#1A56DB" />
-              <View style={styles.divider} />
-              <TextInput
-                value={mobile}
-                onChangeText={setMobile}
-                placeholder="Enter your mobile number"
-                placeholderTextColor="#9CA3AF"
-                style={styles.inputText}
-                keyboardType="phone-pad"
-                returnKeyType="done"
-                maxLength={10}
-                testID="register-mobile-input"
-              />
+            <View style={styles.mobileRow}>
+              <View style={styles.ccBox}>
+                <MaterialCommunityIcons name="cellphone" size={18} color="#1A56DB" />
+                <Text style={styles.cc}>+91</Text>
+                <Ionicons name="chevron-down" size={12} color="#1A56DB" />
+              </View>
+              <View style={styles.numberBox}>
+                <TextInput
+                  value={mobile}
+                  onChangeText={setMobile}
+                  placeholder="Enter your mobile number"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.numberInput}
+                  keyboardType="phone-pad"
+                  returnKeyType="done"
+                  maxLength={10}
+                  testID="register-mobile-input"
+                />
+              </View>
             </View>
           </View>
 
@@ -228,30 +231,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingTop: 8,
   },
-  shield: { width: 76, height: 76, tintColor: "#FFFFFF" },
+  shield: { width: 55, height: 55, tintColor: "#FFFFFF" },
   waveWrap: { position: "absolute", left: 0, right: 0, bottom: -1 },
 
-  content: { paddingHorizontal: 24, paddingTop: 8 },
+  content: { paddingHorizontal: 24, paddingTop: 8, width: "100%" },
   heading: { textAlign: "center", marginTop: 4 },
-  headingDark: { fontSize: 26, fontWeight: "800", color: "#1A1A2E" },
-  headingBlue: { fontSize: 26, fontWeight: "800", color: "#1A56DB" },
+  headingDark: { fontSize: 22, fontWeight: "800", color: "#1A1A2E" },
+  headingBlue: { fontSize: 22, fontWeight: "800", color: "#1A56DB" },
   subtitle: {
-    marginTop: 10,
-    fontSize: 13,
+    marginTop: 4,
+    fontSize: 11,
     color: "#6B7280",
     textAlign: "center",
-    lineHeight: 19,
+    lineHeight: 16,
   },
 
-  field: { marginTop: 18 },
+  field: { marginTop: 10 },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: "#1A1A2E",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   input: {
-    height: 54,
+    height: 46,
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     paddingHorizontal: 14,
@@ -259,10 +262,48 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    overflow: "hidden",
+  },
+  mobileRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    overflow: "hidden",
+  },
+  ccBox: {
+    width: 68,
+    height: 46,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    gap: 2,
+  },
+  numberBox: {
+    flex: 1,
+    minWidth: 0,
+    height: 46,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  numberInput: {
+    width: "100%",
+    fontSize: 12,
+    color: "#1A1A2E",
+    padding: 0,
   },
   cc: {
-    marginLeft: 10,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
     color: "#1A1A2E",
   },
@@ -274,21 +315,24 @@ const styles = StyleSheet.create({
   },
   inputText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     color: "#1A1A2E",
     marginLeft: 10,
     padding: 0,
   },
 
   privacy: {
-    marginTop: 18,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "transparent",
   },
   lockBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "#EFF6FF",
     alignItems: "center",
     justifyContent: "center",
@@ -296,40 +340,40 @@ const styles = StyleSheet.create({
   },
   privacyText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 10,
     color: "#6B7280",
-    lineHeight: 17,
+    lineHeight: 14,
   },
 
   continueBtn: {
-    marginTop: 22,
-    height: 56,
+    marginTop: 14,
+    height: 48,
     backgroundColor: "#1A56DB",
     borderRadius: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   btnLeft: { flexDirection: "row", alignItems: "center" },
   btnIconBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
-  btnBubbleImg: { width: 24, height: 24 },
+  btnBubbleImg: { width: 22, height: 22 },
   continueBtnText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
-    marginLeft: 12,
+    marginLeft: 10,
   },
 
   footer: {
-    marginTop: 18,
+    marginTop: 10,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
