@@ -172,7 +172,7 @@ export default function LanguageSelection() {
 
       {/* Continue button */}
       <Pressable
-        onPress={() => router.push("/permissions")}
+        onPress={() => router.push("/home")}
         style={({ pressed }) => [styles.continueBtn, pressed && { opacity: 0.9 }]}
         testID="lang-continue-btn"
       >
