@@ -139,7 +139,9 @@ export default function LanguageSelection() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.row2col}>
-          {filtered.map((l) => {
+{filtered
+  .filter((l) => l.code === "en")
+  .map((l) => {
             const active = selected === l.code;
             return (
               <Pressable

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter,useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
 import HeroBackground from "@/src/components/hero/HeroBackground";
@@ -24,8 +24,10 @@ const PILL_BORDER = "#D6E4FF";
 
 export default function PhotoUpload() {
   const router = useRouter();
+  const { userId } = useLocalSearchParams<{ userId: string }>();
   const insets = useSafeAreaInsets();
   const [uri, setUri] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const ensurePermission = async () => {
     const current = await ImagePicker.getMediaLibraryPermissionsAsync();
@@ -55,10 +57,90 @@ export default function PhotoUpload() {
       quality: 0.85,
       selectionLimit: 1,
     });
-    if (!result.canceled && result.assets[0]) {
+    if (!result.canceled && result.assets?.[0]) {
       setUri(result.assets[0].uri);
     }
   };
+  const uploadPhoto = async () => {
+    if (!uri) {
+        Alert.alert(
+            "Photo Required",
+            "Please select your photo before continuing."
+        );
+        return;
+    }
+
+    if (!userId) {
+        Alert.alert(
+            "Error",
+            "User ID is missing. Please register again."
+        );
+        return;
+    }
+
+    try {
+        setUploading(true);
+
+        const formData = new FormData();
+
+        formData.append("photo", {
+            uri: uri,
+            name: "profile-photo.jpg",
+            type: "image/jpeg",
+        } as any);
+
+        const response = await fetch(
+            "https://playstation-dose-becoming-spray.trycloudflare.com/api/users/" +
+                userId +
+                "/photo",
+            {
+                method: "POST",
+                body: formData,
+            }
+        );
+
+const responseText = await response.text();
+
+console.log("PHOTO UPLOAD STATUS:", response.status);
+console.log("PHOTO UPLOAD RESPONSE:", responseText);
+
+let data: any = {};
+
+try {
+    data = JSON.parse(responseText);
+} catch (e) {
+    console.error("SERVER RETURNED NON-JSON:", responseText);
+}
+
+        if (!response.ok) {
+            Alert.alert(
+                "Upload Failed",
+                data.detail || "Unable to upload photo."
+            );
+            return;
+        }
+
+        Alert.alert(
+            "Success",
+            "Photo uploaded successfully."
+        );
+
+router.push({
+  pathname: "/emergency-contacts",
+  params: { userId },
+});
+
+    } catch (error) {
+        console.error("Photo upload error:", error);
+
+        Alert.alert(
+            "Connection Error",
+            "Unable to connect to the server. Please try again."
+        );
+    } finally {
+        setUploading(false);
+    }
+};
 
   return (
     <View style={styles.root} testID="photo-upload-screen">
@@ -142,7 +224,7 @@ export default function PhotoUpload() {
               <Text style={styles.retakeText}>Retake</Text>
             </Pressable>
             <Pressable
-              onPress={() => router.push("/emergency-contacts")}
+              onPress={uploadPhoto}
               style={({ pressed }) => [
                 styles.continueBtn,
                 pressed && { opacity: 0.9 },

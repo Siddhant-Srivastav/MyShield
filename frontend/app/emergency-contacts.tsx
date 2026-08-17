@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import {  useState } from "react";
 import {
   Pressable,
   StatusBar,
@@ -6,11 +6,13 @@ import {
   Text,
   TextInput,
   View,
+  Alert
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter,useLocalSearchParams } from "expo-router";
 
 import HeroBackground from "@/src/components/hero/HeroBackground";
 
@@ -41,7 +43,9 @@ const RELATIONSHIPS = ["Family", "Friend", "Spouse", "Parent", "Sibling", "Colle
 
 export default function EmergencyContacts() {
   const router = useRouter();
+  const { userId } = useLocalSearchParams<{ userId: string }>();
   const insets = useSafeAreaInsets();
+  const [saving, setSaving] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([blank(1), blank(2)]);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
@@ -52,10 +56,101 @@ export default function EmergencyContacts() {
     setContacts((cs) => (cs.length > 1 ? cs.filter((c) => c.id !== id) : cs));
   };
   const addContact = () => {
-    setContacts((cs) => (cs.length < 5 ? [...cs, blank(cs.length + 1)] : cs));
-  };
+  setContacts((cs) => (cs.length < 5 ? [...cs, blank(cs.length + 1)] : cs));
+};
 
-  const canAddMore = contacts.length < 5;
+const saveContacts = async () => {
+  const validContacts = contacts.filter(
+    (c) =>
+      c.name.trim() &&
+      c.relationship.trim() &&
+      c.mobile.trim()
+  );
+
+  // Check that at least 2 contacts are completed
+  if (validContacts.length < 2) {
+    Alert.alert(
+      "Contacts Required",
+      "Please add at least 2 complete emergency contacts."
+    );
+    return;
+  }
+
+  // Check userId from route
+  if (!userId) {
+    Alert.alert(
+      "Error",
+      "User ID is missing. Please go back and register again."
+    );
+    return;
+  }
+
+  try {
+    setSaving(true);
+
+    console.log("USER ID:", userId);
+    console.log("CONTACTS:", validContacts);
+
+    const response = await fetch(
+      `http://playstation-dose-becoming-spray.trycloudflare.com/api/users/${userId}/emergency-contacts`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contacts: validContacts.map((contact) => ({
+            name: contact.name.trim(),
+            relationship: contact.relationship.trim(),
+            mobile: contact.mobile.trim(),
+          })),
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    console.log("SERVER RESPONSE:", result);
+
+    if (!response.ok || !result.success) {
+      Alert.alert(
+        "Error",
+        result.message || "Failed to save emergency contacts."
+      );
+      return;
+    }
+
+    Alert.alert(
+  "Success",
+  "Emergency contacts saved successfully.",
+  [
+    {
+      text: "OK",
+      onPress: () => {
+        router.push({
+          pathname: "/language-selection",
+          params: {
+            userId: userId,
+          },
+        });
+      },
+    },
+  ]
+);
+
+  } catch (error) {
+    console.error("Emergency contacts error:", error);
+
+    Alert.alert(
+      "Connection Error",
+      "Unable to connect to the server."
+    );
+  } finally {
+    setSaving(false);
+  }
+};
+
+const canAddMore = contacts.length < 5;
 
   return (
     <View style={styles.root} testID="emergency-contacts-screen">
@@ -209,7 +304,7 @@ export default function EmergencyContacts() {
         ) : null}
 
         <Pressable
-          onPress={() => router.push("/language-selection")}
+          onPress={saveContacts}
           style={({ pressed }) => [styles.continueBtn, pressed && { opacity: 0.9 }]}
           testID="ec-continue-btn"
         >

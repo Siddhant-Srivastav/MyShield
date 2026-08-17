@@ -7,6 +7,7 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -162,7 +163,63 @@ export default function Register() {
           </View>
 
           <Pressable
-            onPress={() => router.push("/photo-upload")}
+            onPress={async () => {
+  if (!name.trim() || !mobile.trim()) {
+    alert("Please enter your name and mobile number");
+    return;
+  }
+
+  try {
+    const response = await fetch("https://playstation-dose-becoming-spray.trycloudflare.com/api/users/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: name.trim(),
+        phone: mobile.trim(),
+        preferred_language: "English",
+        emergency_contacts: [],
+      }),
+    });
+
+    const data = await response.json();
+
+   if (!response.ok) {
+  if (response.status === 400) {
+    Alert.alert(
+      "Account Already Exists",
+      "This mobile number is already registered. Please login to continue.",
+      [
+        {
+          text: "Login Now",
+          onPress: () => router.replace("/login"),
+        },
+      ]
+    );
+  } else {
+    Alert.alert(
+      "Registration Failed",
+      data.detail || "Registration failed"
+    );
+  }
+
+  return;
+}
+
+    console.log("User registered:", data);
+
+    router.push({
+      pathname: "/photo-upload",
+      params: {
+        userId: data.id,
+      },
+    });
+  } catch (error) {
+    console.log("Registration error:", error);
+    alert("Unable to connect to server");
+  }
+}}
             style={({ pressed }) => [styles.continueBtn, pressed && { opacity: 0.9 }]}
             testID="register-continue-btn"
           >
