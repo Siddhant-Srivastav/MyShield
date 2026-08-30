@@ -90,7 +90,7 @@ export default function PhotoUpload() {
         } as any);
 
         const response = await fetch(
-            "https://playstation-dose-becoming-spray.trycloudflare.com/api/users/" +
+            "http://192.168.1.3:8000/api/users/" +
                 userId +
                 "/photo",
             {

@@ -12,7 +12,7 @@ import {
   Ionicons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { useRouter, usePathname } from "expo-router";
+import { useRouter } from "expo-router";
 
 const NAVY = "#111827";
 const MUTED = "#6B7280";
@@ -21,11 +21,9 @@ const LIGHT = "#EEF4FF";
 
 export default function Home() {
   const router = useRouter();
-
   return (
     <SafeAreaView style={styles.safe} edges={["top"]} testID="home-screen">
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <View style={styles.body}>
         {/* Top: logo + heading + subtitle */}
         <View style={styles.header}>
@@ -45,22 +43,29 @@ export default function Home() {
         {/* Safety Emergency card */}
         <Pressable
           onPress={() => router.push("/safety-emergency")}
-          style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.95 }]}
+          style={({ pressed }) => [
+            styles.cardWrap,
+            pressed && { opacity: 0.95 },
+          ]}
           testID="safety-emergency-card"
         >
           <LinearGradient
-            colors={["#F87171", "#DC2626"]}
+            colors={["#DC2626", "#991B1B"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.card}
           >
             <View style={styles.iconBubble}>
               <View style={[styles.iconInner, { backgroundColor: "#FEE2E2" }]}>
-                <MaterialCommunityIcons name="shield-alert" size={36} color="#DC2626" />
+                <MaterialCommunityIcons
+                  name="shield-alert"
+                  size={34}
+                  color="#B91C1C"
+                />
               </View>
             </View>
             <Text style={styles.cardTitle}>SAFETY EMERGENCY</Text>
-            <Text style={styles.cardDesc}>
+            <Text style={styles.cardDesc} numberOfLines={2}>
               For any safety threat, accident, danger or immediate help.
             </Text>
           </LinearGradient>
@@ -69,23 +74,32 @@ export default function Home() {
         {/* Medical Emergency card */}
         <Pressable
           onPress={() => router.push("/medical-emergency")}
-          style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.95 }]}
+          style={({ pressed }) => [
+            styles.cardWrap,
+            styles.cardWrapSecond,
+            pressed && { opacity: 0.95 },
+          ]}
           testID="medical-emergency-card"
         >
           <LinearGradient
-            colors={["#34D399", "#15803D"]}
+            colors={["#16A34A", "#166534"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.card}
           >
             <View style={styles.iconBubble}>
               <View style={[styles.iconInner, { backgroundColor: "#DCFCE7" }]}>
-                <MaterialCommunityIcons name="medical-bag" size={34} color="#15803D" />
+                <MaterialCommunityIcons
+                  name="medical-bag"
+                  size={32}
+                  color="#15803D"
+                />
               </View>
             </View>
             <Text style={styles.cardTitle}>MEDICAL EMERGENCY</Text>
-            <Text style={styles.cardDesc}>
-              For medical emergencies, health issues or immediate medical assistance.
+            <Text style={styles.cardDesc} numberOfLines={2}>
+              For medical emergencies, health issues or immediate medical
+              assistance.
             </Text>
           </LinearGradient>
         </Pressable>
@@ -93,7 +107,7 @@ export default function Home() {
         {/* Safety notice */}
         <View style={styles.notice} testID="home-safety-notice">
           <View style={styles.noticeIcon}>
-            <Ionicons name="shield-checkmark" size={18} color={BLUE} />
+            <Ionicons name="shield-checkmark" size={16} color={BLUE} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.noticeTitle}>We are here to protect you.</Text>
@@ -103,7 +117,6 @@ export default function Home() {
           </View>
         </View>
       </View>
-
       <BottomNav active="home" />
     </SafeAreaView>
   );
@@ -118,9 +131,24 @@ export function BottomNav({
   const insets = useSafeAreaInsets();
   const items = [
     { key: "home" as const, label: "Home", icon: "home", path: "/home" },
-    { key: "guidance" as const, label: "Guidance", icon: "compass", path: "/guidance" },
-    { key: "contacts" as const, label: "Emergency\nContacts", icon: "people", path: "/contacts" },
-    { key: "settings" as const, label: "Settings", icon: "settings-sharp", path: "/settings" },
+    {
+      key: "guidance" as const,
+      label: "Guidance",
+      icon: "compass",
+      path: "/guidance",
+    },
+    {
+      key: "contacts" as const,
+      label: "Emergency\nContacts",
+      icon: "people",
+      path: "/contacts",
+    },
+    {
+      key: "settings" as const,
+      label: "Settings",
+      icon: "settings-sharp",
+      path: "/settings",
+    },
   ];
   return (
     <View
@@ -144,7 +172,9 @@ export function BottomNav({
             <Text
               style={[
                 styles.tabLabel,
-                isActive ? { color: BLUE, fontWeight: "700" } : { color: "#9CA3AF" },
+                isActive
+                  ? { color: BLUE, fontWeight: "700" }
+                  : { color: "#9CA3AF" },
               ]}
               numberOfLines={2}
             >
@@ -159,89 +189,87 @@ export function BottomNav({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 6 },
-
-  header: { alignItems: "center", marginBottom: 8 },
-  logo: { width: 42, height: 42 },
+  body: { flex: 1, paddingHorizontal: 16, paddingTop: 4 },
+  header: { alignItems: "center", marginBottom: 6 },
+  logo: { width: 36, height: 36 },
   heading: {
-    marginTop: 4,
-    fontSize: 26,
+    marginTop: 2,
+    fontSize: 22,
     fontWeight: "700",
     color: NAVY,
     textAlign: "center",
   },
   subtitle: {
     marginTop: 2,
-    fontSize: 13,
+    fontSize: 12,
     color: MUTED,
     textAlign: "center",
   },
-
+  /* Cards flex to fill the screen -> NO scrolling needed */
+  cardWrap: { flex: 1 },
+  cardWrapSecond: { marginTop: 12 },
   card: {
     flex: 1,
-    borderRadius: 22,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
   },
-  cardWrap: {
-    flex: 1,
-    marginTop: 8,
-  },
   iconBubble: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.7)",
     backgroundColor: "rgba(255,255,255,0.25)",
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 8,
   },
   iconInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
   },
   cardTitle: {
-    marginTop: 8,
     color: "#FFFFFF",
-    fontSize: 22,
+    fontSize: 17,
     fontWeight: "800",
     textAlign: "center",
     letterSpacing: 0.5,
   },
   cardDesc: {
-    marginTop: 4,
+    marginTop: 3,
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 11,
     textAlign: "center",
-    lineHeight: 16,
-    paddingHorizontal: 6,
+    lineHeight: 15,
+    paddingHorizontal: 8,
   },
-
   notice: {
     marginTop: 10,
+    marginBottom: 6,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: LIGHT,
     borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
     gap: 10,
   },
   noticeIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
-  noticeTitle: { color: BLUE, fontSize: 13, fontWeight: "700" },
-  noticeBody: { color: MUTED, fontSize: 11, marginTop: 1, lineHeight: 14 },
-
+  noticeTitle: { color: BLUE, fontSize: 12, fontWeight: "700" },
+  noticeBody: { color: MUTED, fontSize: 10, marginTop: 1, lineHeight: 13 },
   tabBar: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",

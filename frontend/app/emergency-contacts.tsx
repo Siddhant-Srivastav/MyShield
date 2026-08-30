@@ -1,4 +1,4 @@
-import {  useState } from "react";
+import { useState } from "react";
 import {
   Pressable,
   StatusBar,
@@ -12,7 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
-import { useRouter,useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 import HeroBackground from "@/src/components/hero/HeroBackground";
 
@@ -22,13 +22,14 @@ const MUTED = "#6B7280";
 const RED = "#DC2626";
 const BORDER = "#E5E7EB";
 
-type Contact = { id: string; name: string; relationship: string; mobile: string };
+type Contact = { id: string; name: string; relationship: string; mobile: string; email: string };  // ⬅️ email add
 
 const blank = (i: number): Contact => ({
   id: `${Date.now()}-${i}`,
   name: "",
   relationship: "",
   mobile: "",
+  email: "",   // ⬅️ NAYA
 });
 
 const STEPS = [
@@ -56,101 +57,79 @@ export default function EmergencyContacts() {
     setContacts((cs) => (cs.length > 1 ? cs.filter((c) => c.id !== id) : cs));
   };
   const addContact = () => {
-  setContacts((cs) => (cs.length < 5 ? [...cs, blank(cs.length + 1)] : cs));
-};
+    setContacts((cs) => (cs.length < 5 ? [...cs, blank(cs.length + 1)] : cs));
+  };
 
-const saveContacts = async () => {
-  const validContacts = contacts.filter(
-    (c) =>
-      c.name.trim() &&
-      c.relationship.trim() &&
-      c.mobile.trim()
-  );
-
-  // Check that at least 2 contacts are completed
-  if (validContacts.length < 2) {
-    Alert.alert(
-      "Contacts Required",
-      "Please add at least 2 complete emergency contacts."
-    );
-    return;
-  }
-
-  // Check userId from route
-  if (!userId) {
-    Alert.alert(
-      "Error",
-      "User ID is missing. Please go back and register again."
-    );
-    return;
-  }
-
-  try {
-    setSaving(true);
-
-    console.log("USER ID:", userId);
-    console.log("CONTACTS:", validContacts);
-
-    const response = await fetch(
-      `http://playstation-dose-becoming-spray.trycloudflare.com/api/users/${userId}/emergency-contacts`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contacts: validContacts.map((contact) => ({
-            name: contact.name.trim(),
-            relationship: contact.relationship.trim(),
-            mobile: contact.mobile.trim(),
-          })),
-        }),
-      }
+  const saveContacts = async () => {
+    const validContacts = contacts.filter(
+      (c) => c.name.trim() && c.relationship.trim() && c.mobile.trim()
     );
 
-    const result = await response.json();
-
-    console.log("SERVER RESPONSE:", result);
-
-    if (!response.ok || !result.success) {
-      Alert.alert(
-        "Error",
-        result.message || "Failed to save emergency contacts."
-      );
+    if (validContacts.length < 2) {
+      Alert.alert("Contacts Required", "Please add at least 2 complete emergency contacts.");
       return;
     }
 
-    Alert.alert(
-  "Success",
-  "Emergency contacts saved successfully.",
-  [
-    {
-      text: "OK",
-      onPress: () => {
-        router.push({
-          pathname: "/language-selection",
-          params: {
-            userId: userId,
+    if (!userId) {
+      Alert.alert("Error", "User ID is missing. Please go back and register again.");
+      return;
+    }
+
+    // Email format validation (agar email bhara hai to sahi ho)
+    for (const c of validContacts) {
+      if (c.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim())) {
+        Alert.alert("Invalid Email", `Contact "${c.name}" has an invalid email address.`);
+        return;
+      }
+    }
+
+    try {
+      setSaving(true);
+
+      console.log("USER ID:", userId);
+      console.log("CONTACTS:", validContacts);
+
+      const response = await fetch(
+        `http://192.168.1.3:8000/api/users/${userId}/emergency-contacts`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contacts: validContacts.map((contact) => ({
+              name: contact.name.trim(),
+              relationship: contact.relationship.trim(),
+              mobile: contact.mobile.trim(),
+              email: contact.email.trim(),   // ⬅️ NAYA
+            })),
+          }),
+        }
+      );
+
+      const result = await response.json();
+      console.log("SERVER RESPONSE:", result);
+
+      if (!response.ok || !result.success) {
+        Alert.alert("Error", result.message || "Failed to save emergency contacts.");
+        return;
+      }
+
+      Alert.alert("Success", "Emergency contacts saved successfully.", [
+        {
+          text: "OK",
+          onPress: () => {
+            router.push({ pathname: "/language-selection", params: { userId } });
           },
-        });
-      },
-    },
-  ]
-);
+        },
+      ]);
+    } catch (error) {
+      console.error("Emergency contacts error:", error);
+      Alert.alert("Connection Error", "Unable to connect to the server.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  } catch (error) {
-    console.error("Emergency contacts error:", error);
-
-    Alert.alert(
-      "Connection Error",
-      "Unable to connect to the server."
-    );
-  } finally {
-    setSaving(false);
-  }
-};
-
-const canAddMore = contacts.length < 5;
+  const canAddMore = contacts.length < 5;
 
   return (
     <View style={styles.root} testID="emergency-contacts-screen">
@@ -234,12 +213,7 @@ const canAddMore = contacts.length < 5;
                 testID={`contact-relationship-${i + 1}`}
               >
                 <MaterialCommunityIcons name="account-group" size={16} color={BLUE} />
-                <Text
-                  style={[
-                    styles.inputText,
-                    !c.relationship && { color: "#9CA3AF" },
-                  ]}
-                >
+                <Text style={[styles.inputText, !c.relationship && { color: "#9CA3AF" }]}>
                   {c.relationship || "Select relationship"}
                 </Text>
                 <Ionicons
@@ -288,6 +262,23 @@ const canAddMore = contacts.length < 5;
                   />
                 </View>
               </View>
+
+              {/* ⬇️ NAYA: Email field */}
+              <Text style={styles.label}>Email Address (Optional)</Text>
+              <View style={styles.input}>
+                <Ionicons name="mail" size={16} color={BLUE} />
+                <TextInput
+                  value={c.email}
+                  onChangeText={(v) => updateContact(c.id, { email: v })}
+                  placeholder="Enter email address"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.inputText}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  testID={`contact-email-${i + 1}`}
+                />
+              </View>
             </View>
           );
         })}
@@ -313,12 +304,8 @@ const canAddMore = contacts.length < 5;
         </Pressable>
       </KeyboardAwareScrollView>
 
-      {/* Stepper pinned to bottom */}
       <View
-        style={[
-          styles.stepper,
-          { paddingBottom: Math.max(insets.bottom, 8) },
-        ]}
+        style={[styles.stepper, { paddingBottom: Math.max(insets.bottom, 8) }]}
         testID="onboarding-stepper"
       >
         {STEPS.map((s, i) => {
@@ -348,10 +335,7 @@ const canAddMore = contacts.length < 5;
                 )}
               </View>
               <Text
-                style={[
-                  styles.stepLabel,
-                  active && { color: BLUE, fontWeight: "700" },
-                ]}
+                style={[styles.stepLabel, active && { color: BLUE, fontWeight: "700" }]}
                 numberOfLines={2}
               >
                 {s.label.replace("\n", " ")}
@@ -378,10 +362,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 2,
   },
-
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 8 },
-
   title: { textAlign: "center" },
   titleDark: { fontSize: 21, fontWeight: "800", color: NAVY },
   titleBlue: { fontSize: 21, fontWeight: "800", color: BLUE },
@@ -392,7 +374,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 14,
   },
-
   infoBox: {
     marginTop: 8,
     flexDirection: "row",
@@ -413,7 +394,6 @@ const styles = StyleSheet.create({
   },
   infoTitle: { fontSize: 12, fontWeight: "700", color: NAVY },
   infoSub: { fontSize: 10, color: MUTED, marginTop: 1 },
-
   card: {
     marginTop: 8,
     backgroundColor: "#FFFFFF",
@@ -433,7 +413,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 13, fontWeight: "800", color: NAVY },
   removeBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
   removeText: { color: RED, fontSize: 11, fontWeight: "600", marginLeft: 4 },
-
   label: { fontSize: 11, fontWeight: "700", color: NAVY, marginTop: 4, marginBottom: 3 },
   input: {
     height: 38,
@@ -447,7 +426,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   inputText: { flex: 1, fontSize: 12, color: NAVY, padding: 0 },
-
   mobileRow: { flexDirection: "row", alignItems: "center", gap: 8, width: "100%", overflow: "hidden" },
   ccBox: {
     width: 78,
@@ -476,7 +454,6 @@ const styles = StyleSheet.create({
   },
   numberInput: { width: "100%", fontSize: 12, color: NAVY, padding: 0 },
   cc: { fontSize: 12, fontWeight: "700", color: NAVY },
-
   dropdown: {
     marginTop: 4,
     backgroundColor: "#FFFFFF",
@@ -487,7 +464,6 @@ const styles = StyleSheet.create({
   },
   dropdownItem: { paddingHorizontal: 10, paddingVertical: 6 },
   dropdownText: { fontSize: 12, color: NAVY },
-
   addMore: {
     marginTop: 8,
     height: 42,
@@ -502,7 +478,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addMoreText: { color: BLUE, fontSize: 13, fontWeight: "700", marginLeft: 6 },
-
   continueBtn: {
     marginTop: 8,
     height: 46,
@@ -514,7 +489,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   continueText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700", marginRight: 4 },
-
   stepper: {
     flexDirection: "row",
     justifyContent: "space-between",

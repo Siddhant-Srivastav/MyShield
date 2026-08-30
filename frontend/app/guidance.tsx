@@ -87,10 +87,10 @@ export default function GuidanceScreen() {
         </View>
 
         {/* Emergency Contacts */}
-        <Pressable
-          onPress={() => router.push("/emergency-contacts")}
-          style={styles.navItem}
-        >
+<Pressable
+  onPress={() => router.push("/contacts")}
+  style={styles.navItem}
+>
           <Ionicons name="people" size={22} color="#6B7280" />
           <Text style={styles.navText}>Emergency Contacts</Text>
         </Pressable>

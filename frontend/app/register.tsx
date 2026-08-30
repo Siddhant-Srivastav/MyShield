@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path } from "react-native-svg";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STAR_POSITIONS: [number, number][] = [
   [8, 12], [15, 8], [22, 18], [28, 6], [35, 14],
@@ -39,6 +40,7 @@ export default function Register() {
 
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
+  const [email, setEmail] = useState("");   // ⬅️ NAYA
 
   return (
     <View style={styles.root} testID="register-screen">
@@ -145,11 +147,31 @@ export default function Register() {
                   placeholderTextColor="#9CA3AF"
                   style={styles.numberInput}
                   keyboardType="phone-pad"
-                  returnKeyType="done"
+                  returnKeyType="next"
                   maxLength={10}
                   testID="register-mobile-input"
                 />
               </View>
+            </View>
+          </View>
+
+          {/* ⬇️ NAYA: Email field */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Email Address</Text>
+            <View style={styles.input}>
+              <Ionicons name="mail" size={20} color="#1A56DB" />
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter your email address"
+                placeholderTextColor="#9CA3AF"
+                style={styles.inputText}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                testID="register-email-input"
+              />
             </View>
           </View>
 
@@ -164,62 +186,59 @@ export default function Register() {
 
           <Pressable
             onPress={async () => {
-  if (!name.trim() || !mobile.trim()) {
-    alert("Please enter your name and mobile number");
-    return;
-  }
+              if (!name.trim() || !mobile.trim()) {
+                alert("Please enter your name and mobile number");
+                return;
+              }
 
-  try {
-    const response = await fetch("https://playstation-dose-becoming-spray.trycloudflare.com/api/users/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: name.trim(),
-        phone: mobile.trim(),
-        preferred_language: "English",
-        emergency_contacts: [],
-      }),
-    });
+              // Email format check (agar bhara hai to sahi format me hona chahiye)
+              if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+                alert("Please enter a valid email address");
+                return;
+              }
 
-    const data = await response.json();
+              try {
+                const response = await fetch("http://192.168.1.3:8000/api/users/register", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    name: name.trim(),
+                    phone: mobile.trim(),
+                    email: email.trim(),   // ⬅️ NAYA
+                    preferred_language: "English",
+                    emergency_contacts: [],
+                  }),
+                });
 
-   if (!response.ok) {
-  if (response.status === 400) {
-    Alert.alert(
-      "Account Already Exists",
-      "This mobile number is already registered. Please login to continue.",
-      [
-        {
-          text: "Login Now",
-          onPress: () => router.replace("/login"),
-        },
-      ]
-    );
-  } else {
-    Alert.alert(
-      "Registration Failed",
-      data.detail || "Registration failed"
-    );
-  }
+                const data = await response.json();
 
-  return;
-}
+                if (!response.ok) {
+                  if (response.status === 400) {
+                    Alert.alert(
+                      "Account Already Exists",
+                      "This mobile number is already registered. Please login to continue.",
+                      [{ text: "Login Now", onPress: () => router.replace("/login") }]
+                    );
+                  } else {
+                    Alert.alert("Registration Failed", data.detail || "Registration failed");
+                  }
+                  return;
+                }
 
-    console.log("User registered:", data);
+                console.log("User registered:", data);
+                await AsyncStorage.setItem("user", JSON.stringify(data));
 
-    router.push({
-      pathname: "/photo-upload",
-      params: {
-        userId: data.id,
-      },
-    });
-  } catch (error) {
-    console.log("Registration error:", error);
-    alert("Unable to connect to server");
-  }
-}}
+                router.push({
+                  pathname: "/photo-upload",
+                  params: { userId: data.id },
+                });
+              } catch (error) {
+                console.log("Registration error:", error);
+                alert("Unable to connect to server");
+              }
+            }}
             style={({ pressed }) => [styles.continueBtn, pressed && { opacity: 0.9 }]}
             testID="register-continue-btn"
           >

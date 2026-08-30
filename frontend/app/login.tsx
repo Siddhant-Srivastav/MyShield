@@ -15,7 +15,7 @@ import { useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const API_URL =
-  "https://playstation-dose-becoming-spray.trycloudflare.com";
+  "http://192.168.1.3:8000";
 
 export default function Login() {
   const router = useRouter();

@@ -1,35 +1,33 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
-
+from pydantic import BaseModel
+from typing import List
 
 class EmergencyContact(BaseModel):
-    name: str = Field(..., min_length=1)
-    phone: str = Field(..., min_length=10, max_length=15)
-    relationship: Optional[str] = None
-
+    name: str
+    relationship: str
+    mobile: str
+    email: str = ""
 
 class UserCreate(BaseModel):
-    name: str = Field(..., min_length=1)
-    phone: str = Field(..., min_length=10, max_length=15)
+    name: str
+    phone: str
+    email: str = ""
     preferred_language: str = "English"
-    emergency_contacts: List[EmergencyContact] = Field(default_factory=list)
-
-class LoginRequest(BaseModel):
-    phone: str = Field(..., min_length=10, max_length=15)
-
-
-class SendOTPRequest(BaseModel):
-    phone: str = Field(..., min_length=10, max_length=15)
-
-
-class VerifyOTPRequest(BaseModel):
-    phone: str = Field(..., min_length=10, max_length=15)
-    otp: str = Field(..., min_length=6, max_length=6)
-
+    emergency_contacts: List[EmergencyContact] = []
 
 class UserResponse(BaseModel):
     id: str
     name: str
     phone: str
+    email: str = ""
     preferred_language: str
     emergency_contacts: List[EmergencyContact]
+
+class LoginRequest(BaseModel):
+    phone: str
+
+class SendOTPRequest(BaseModel):
+    phone: str
+
+class VerifyOTPRequest(BaseModel):
+    phone: str
+    otp: str

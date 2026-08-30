@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const NAVY = "#1E3A5F";
 const BLUE = "#4A90D9";
@@ -70,8 +71,21 @@ export default function SplashScreen() {
     );
     pulse.start();
 
-    const timer = setTimeout(() => {
-      router.replace("/welcome");
+    // ✅ NEW: account holders go straight to Home, new users see Welcome
+    const timer = setTimeout(async () => {
+      let destination: "/welcome" | "/home" = "/welcome";
+      try {
+        const savedUser = await AsyncStorage.getItem("user");
+        if (savedUser) {
+          const parsed = JSON.parse(savedUser);
+          if (parsed && (parsed.id || parsed._id)) {
+            destination = "/home";
+          }
+        }
+      } catch (error) {
+        console.log("Splash user check error:", error);
+      }
+      router.replace(destination);
     }, 5000);
 
     return () => {
@@ -83,7 +97,6 @@ export default function SplashScreen() {
   return (
     <View style={styles.container} testID="splash-screen">
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <Animated.View
         style={[styles.logoBlock, { opacity: logoOpacity }]}
         testID="splash-logo"
@@ -92,10 +105,7 @@ export default function SplashScreen() {
           pointerEvents="none"
           style={[
             styles.pulse,
-            {
-              opacity: pulseOpacity,
-              transform: [{ scale: pulseScale }],
-            },
+            { opacity: pulseOpacity, transform: [{ scale: pulseScale }] },
           ]}
           testID="splash-logo-pulse"
         />
@@ -105,25 +115,13 @@ export default function SplashScreen() {
           resizeMode="contain"
         />
       </Animated.View>
-
-      <Animated.Text
-        style={[styles.brand, { opacity: textOpacity }]}
-        testID="splash-brand"
-      >
+      <Animated.Text style={[styles.brand, { opacity: textOpacity }]} testID="splash-brand">
         MyShield
       </Animated.Text>
-
-      <Animated.Text
-        style={[styles.eyebrow, { opacity: textOpacity }]}
-        testID="splash-eyebrow"
-      >
+      <Animated.Text style={[styles.eyebrow, { opacity: textOpacity }]} testID="splash-eyebrow">
         EMERGENCY RESPONSE & SAFETY
       </Animated.Text>
-
-      <Animated.Text
-        style={[styles.tagline, { opacity: textOpacity }]}
-        testID="splash-tagline"
-      >
+      <Animated.Text style={[styles.tagline, { opacity: textOpacity }]} testID="splash-tagline">
         Emergency Help When Every Second Matters
       </Animated.Text>
     </View>
@@ -151,10 +149,7 @@ const styles = StyleSheet.create({
     borderRadius: LOGO_SIZE / 2,
     backgroundColor: BLUE,
   },
-  logo: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
-  },
+  logo: { width: LOGO_SIZE, height: LOGO_SIZE },
   brand: {
     marginTop: 24,
     fontSize: 32,

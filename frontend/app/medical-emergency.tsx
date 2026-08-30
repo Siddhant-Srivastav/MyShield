@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Easing,
   Image,
@@ -14,6 +15,49 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Location from "expo-location";
+
+async function triggerEmergency(userId: string, emergencyType: "safety" | "medical") {
+  try {
+    // 1. GPS location lo
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Location Permission", "Please enable location to send emergency alert.");
+      return;
+    }
+
+    const loc = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
+    });
+
+    // 2. Backend ko bhejo
+    const response = await fetch(
+      `http://192.168.1.3:8000/api/emergency/${emergencyType}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        }),
+      }
+    );
+
+    const data = await response.json();
+    if (data.success) {
+      Alert.alert(
+        "🚨 Emergency Alert Sent!",
+        `Alert sent to ${data.emails_sent_to.length} email(s) and ${data.sms_sent_to.length} SMS. Help is on the way.`
+      );
+    } else {
+      Alert.alert("Error", data.message || "Failed to send alert");
+    }
+  } catch (error) {
+    console.error("Emergency error:", error);
+    Alert.alert("Error", "Unable to send emergency alert");
+  }
+}
 
 const NAVY = "#0B1E3F";
 const BLUE = "#1A56DB";
@@ -163,7 +207,7 @@ export default function MedicalEmergency() {
             <Text style={styles.statusSub}>Your call is being connected...</Text>
           </View>
         </View>
-
+.\venv\Scripts\Activate.ps1
         {/* Calling block */}
         <View style={styles.callBlock}>
           <Text style={styles.callerLabel}>Calling Ambulance Helpline</Text>
