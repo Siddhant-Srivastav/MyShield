@@ -90,7 +90,7 @@ export default function PhotoUpload() {
         } as any);
 
         const response = await fetch(
-            "http://192.168.1.13:8000/api/users/" +
+            "https://myshield-api.onrender.com/api/users/" +
                 userId +
                 "/photo",
             {

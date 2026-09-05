@@ -15,7 +15,7 @@ import { useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const API_URL =
-  "http://192.168.1.13:8000";
+  "https://myshield-api.onrender.com";
 
 export default function Login() {
   const router = useRouter();

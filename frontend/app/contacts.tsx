@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 import { BottomNav } from "./home";
 
 // ⚠️ Keep your local backend URL here (same IP you are already using)
-const API_BASE_URL = "http://192.168.1.13:8000";
+const API_BASE_URL = "https://myshield-api.onrender.com";
 
 type EmergencyContact = {
   name: string;

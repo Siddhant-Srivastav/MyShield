@@ -15,7 +15,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://192.168.1.13:8000"; // Phase 2 me Render URL
+const API_URL = "https://myshield-api.onrender.com"; // Phase 2 me Render URL
 
 export default function MedicalEmergency() {
   const router = useRouter();
