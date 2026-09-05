@@ -9,42 +9,68 @@ import time
 import os
 import asyncio
 import httpx
-import boto3
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-# ============ AWS S3 ============
-AWS_ACCESS_KEY = ""
-AWS_SECRET_KEY = ""
-AWS_BUCKET = ""
-AWS_REGION = ""
+# ============ AWS S3 - LAZY INIT (server start nahi tootega) ============
+s3_client = None
 
-s3_client = boto3.client(
-    "s3",
-    region_name=AWS_REGION,
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
-)
+def get_s3_client():
+    global s3_client
+    if s3_client is None:
+        try:
+            import boto3
+            s3_client = boto3.client(
+                "s3",
+                region_name="ap-south-1",
+                aws_access_key_id=AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            )
+            print("✅ AWS S3 client initialized successfully")
+        except Exception as e:
+            print(f"⚠️ AWS S3 init failed: {e}")
+            print("⚠️ Photo upload will not work, but app will continue")
+            s3_client = None
+    return s3_client
+
 
 def upload_photo_to_s3(user_id: str, photo_data: bytes, content_type: str) -> str:
+    client = get_s3_client()
+    if client is None:
+        raise Exception("AWS S3 not available")
     key = f"{user_id}.jpg"
-    s3_client.put_object(
-        Bucket=AWS_BUCKET, Key=key, Body=photo_data,
+    client.put_object(
+        Bucket=AWS_STORAGE_BUCKET_NAME,
+        Key=key,
+        Body=photo_data,
         ContentType=content_type or "image/jpeg",
     )
-    return f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
+    return f"https://{AWS_STORAGE_BUCKET_NAME}.s3.ap-south-1.amazonaws.com/{key}"
+
+
+def get_presigned_photo_url(user_id: str) -> str:
+    """Private bucket se 7-din valid photo link banata hai"""
+    try:
+        client = get_s3_client()
+        if client is None:
+            return ""
+        return client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": AWS_STORAGE_BUCKET_NAME, "Key": f"{user_id}.jpg"},
+            ExpiresIn=604800,  # 7 days
+        )
+    except Exception as e:
+        print("Presigned URL failed:", e)
+        return ""
+
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from database import check_database_connection, close_database, users_collection
 from models import (
-    UserCreate,
-    UserResponse,
-    LoginRequest,
-    SendOTPRequest,
-    VerifyOTPRequest,
+    UserCreate, UserResponse, LoginRequest, SendOTPRequest, VerifyOTPRequest,
 )
 from pydantic import BaseModel
 from typing import List
@@ -52,6 +78,16 @@ from bson import ObjectId
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env", override=True)
+# ============ SAARE SECRETS .ENV SE (code me ZERO secrets) ============
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "myshield-photos-2026")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+TWILIO_WHATSAPP_SENDER = os.getenv("TWILIO_WHATSAPP_SENDER", "whatsapp:+14155238886")
+GMAIL_ADDRESS = os.getenv("GMAIL_ADDRESS", "")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
+DEMO_EMAILS = [e.strip() for e in os.getenv("DEMO_EMAILS", "").split(",") if e.strip()]
 
 
 class EmergencyActivationRequest(BaseModel):
@@ -96,30 +132,9 @@ async def lifespan(app: FastAPI):
         logger.error("Error while closing MongoDB: %s", exc)
 
 
-app = FastAPI(
-    title="MyShield API",
-    description="Backend API for the MyShield emergency assistance platform.",
-    version="1.2.0",
-    lifespan=lifespan,
-)
-
+app = FastAPI(title="MyShield API", version="1.2.0", lifespan=lifespan)
 otp_store = {}
 
-# =========================================================
-# ✅ WHATSAPP (Twilio Sandbox)
-# =========================================================
-TWILIO_ACCOUNT_SID = ""
-TWILIO_AUTH_TOKEN = ""
-TWILIO_WHATSAPP_SENDER = ""
-
-# =========================================================
-# ✅ GMAIL SMTP (FREE - send to ANYONE)
-# =========================================================
-GMAIL_ADDRESS = ""
-GMAIL_APP_PASSWORD = ""
-DEMO_EMAILS = [""]
-
-PUBLIC_API_URL = os.getenv("PUBLIC_API_URL", "http://192.168.1.3:8000")
 
 print("=" * 60)
 print("WHATSAPP SENDER:", TWILIO_WHATSAPP_SENDER)
@@ -127,50 +142,69 @@ print("GMAIL SENDER:", GMAIL_ADDRESS)
 print("=" * 60)
 
 
-# =========================================================
-# ✅ WHATSAPP SENDER
-# =========================================================
 async def send_whatsapp_message(mobile: str, message: str):
     to_number = mobile if mobile.startswith("+") else f"+91{mobile}"
     url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
-    data = {
-        "To": f"whatsapp:{to_number}",
-        "From": TWILIO_WHATSAPP_SENDER,
-        "Body": message,
-    }
+    data = {"To": f"whatsapp:{to_number}", "From": TWILIO_WHATSAPP_SENDER, "Body": message}
     async with httpx.AsyncClient(timeout=15.0) as client:
         r = await client.post(url, auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN), data=data)
-        print(f"WHATSAPP RESPONSE ({to_number}): {r.status_code} {r.text}")
+        print(f"WHATSAPP RESPONSE ({to_number}): {r.status_code}")
         if r.status_code >= 300:
             raise Exception(f"WhatsApp error {r.status_code}: {r.text}")
         return r.json()
 
 
-# =========================================================
-# ✅ GMAIL SMTP — DONO FUNCTIONS (yeh missing tha!)
-# =========================================================
 def _send_email_sync(to_emails, subject: str, html: str):
-    """Synchronous Gmail send — runs in thread pool"""
     if isinstance(to_emails, str):
         to_emails = [to_emails]
+    
+    # ✅ SUPER SIMPLE EMAIL (spam filter bypass)
     msg = MIMEMultipart("alternative")
     msg["From"] = f"MyShield <{GMAIL_ADDRESS}>"
     msg["To"] = ", ".join(to_emails)
     msg["Subject"] = subject
-    msg.attach(MIMEText(html, "html"))
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
-        server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
-        server.sendmail(GMAIL_ADDRESS, to_emails, msg.as_string())
-    return {"sent": to_emails}
+    
+    # Plain text version (zaroori hai)
+    msg.attach(MIMEText(html, "html", "utf-8"))
+    
+    print(f"📡 Gmail SMTP attempt...")
+    
+    try:
+        # ✅ PORT 587 + STARTTLS (Gmail recommended)
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+            server.ehlo()
+            server.starttls()  # ⬅️ TLS encryption
+            server.ehlo()
+            
+            print(f"🔐 Logging in as {GMAIL_ADDRESS}...")
+            server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
+            print(f"✅ Gmail login successful!")
+            
+            print(f"📤 Sending to {to_emails}...")
+            result = server.sendmail(GMAIL_ADDRESS, to_emails, msg.as_string())
+            
+            if result == {}:
+                print(f"✅ Gmail accepted for: {to_emails}")
+                print(f"⏱️ Check inbox/spam in 1-2 minutes")
+                return {"sent": to_emails, "status": "success"}
+            else:
+                print(f"❌ Gmail rejected: {result}")
+                raise Exception(f"Rejected: {result}")
+                
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"❌ AUTH FAILED: {e}")
+        print(f"💡 App password galat hai — naya banao: https://myaccount.google.com/apppasswords")
+        raise
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        raise
 
 
 async def send_email(to_emails, subject: str, html: str):
-    """Async wrapper — calls _send_email_sync in thread pool"""
     return await asyncio.to_thread(_send_email_sync, to_emails, subject, html)
 
 
 async def send_sms(mobile: str, message: str):
-    """WhatsApp bhejo; fail hone par sirf mock print."""
     try:
         result = await send_whatsapp_message(mobile, message)
         print("✅ REAL MESSAGE SENT VIA WHATSAPP to", mobile)
@@ -181,9 +215,6 @@ async def send_sms(mobile: str, message: str):
     return {"return": True, "mock": True}
 
 
-# =========================================================
-# HELPER
-# =========================================================
 async def find_user_by_any_id(user_id: str):
     if not user_id:
         return None
@@ -197,11 +228,8 @@ async def find_user_by_any_id(user_id: str):
 
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CORSMiddleware, allow_origins=["*"], allow_credentials=False,
+    allow_methods=["*"], allow_headers=["*"],
 )
 
 
@@ -216,34 +244,27 @@ async def health_check():
         await check_database_connection()
         return {"success": True, "api": "online", "database": "connected"}
     except Exception as exc:
-        logger.error("Health check failed: %s", exc)
         return {"success": False, "api": "online", "database": "disconnected"}
 
 
-# =========================================================
-# OTP
-# =========================================================
 @app.post("/api/users/send-otp")
 async def send_otp(data: SendOTPRequest):
     try:
         phone = data.phone.strip()
         user = await users_collection.find_one({"phone": phone})
         if not user:
-            return {"success": False, "message": "User not found. Please register first."}
+            return {"success": False, "message": "User not found."}
 
         otp = str(secrets.randbelow(900000) + 100000)
         otp_store[phone] = {"otp": otp, "expires_at": time.time() + 300}
 
-        message = (
-            f"MyShield: Your login OTP is {otp}. "
-            f"Valid for 5 minutes. Do not share with anyone."
-        )
+        message = f"MyShield: Your login OTP is {otp}. Valid for 5 minutes."
 
         print("=" * 60)
         print(f"SENDING OTP to {phone} | OTP: {otp}")
+        print(f"📧 [BACKUP OTP] Terminal par OTP: {otp} (agar email nahi aayi)")
         await send_sms(phone, message)
 
-        # ⬇️ EMAIL OTP (guaranteed delivery)
         user_email = user.get("email", "").strip()
         target = user_email if user_email else DEMO_EMAILS
         try:
@@ -251,18 +272,17 @@ async def send_otp(data: SendOTPRequest):
             <div style="font-family:sans-serif;max-width:450px;margin:auto;padding:24px;border:2px solid #1A56DB;border-radius:16px">
               <h2 style="color:#1A56DB">🛡️ MyShield Login OTP</h2>
               <div style="background:#EEF4FF;padding:18px;text-align:center;font-size:34px;font-weight:bold;letter-spacing:8px;color:#1A56DB;border-radius:12px">{otp}</div>
-              <p style="color:#6B7280">Valid for 5 minutes. Do not share with anyone.</p>
+              <p style="color:#6B7280">Valid for 5 minutes. Do not share.</p>
             </div>"""
             await send_email(target, "MyShield Login OTP", otp_html)
             print("✅ OTP EMAIL SENT to", target)
         except Exception as e:
             print("Email OTP failed:", e)
         print("=" * 60)
-
-        return {"success": True, "message": "OTP sent to your WhatsApp and email."}
+        return {"success": True, "message": "OTP sent."}
     except Exception as exc:
         logger.error("Send OTP failed: %s", exc)
-        return {"success": False, "message": "Failed to generate OTP."}
+        return {"success": False, "message": "Failed."}
 
 
 @app.post("/api/users/verify-otp")
@@ -271,24 +291,20 @@ async def verify_otp(data: VerifyOTPRequest):
         phone = data.phone.strip()
         otp = data.otp.strip()
         saved_otp = otp_store.get(phone)
-
         if not saved_otp:
-            return {"success": False, "message": "OTP not found. Please request a new OTP."}
+            return {"success": False, "message": "OTP not found."}
         if time.time() > saved_otp["expires_at"]:
             del otp_store[phone]
-            return {"success": False, "message": "OTP expired. Please request a new OTP."}
+            return {"success": False, "message": "OTP expired."}
         if otp != saved_otp["otp"]:
             return {"success": False, "message": "Invalid OTP."}
-
         user = await users_collection.find_one({"phone": phone})
         if not user:
             del otp_store[phone]
             return {"success": False, "message": "User not found."}
-
         del otp_store[phone]
         return {
             "success": True,
-            "message": "OTP verified successfully.",
             "user": {
                 "id": user.get("id") or str(user["_id"]),
                 "name": user["name"],
@@ -298,24 +314,17 @@ async def verify_otp(data: VerifyOTPRequest):
             },
         }
     except Exception as exc:
-        logger.error("Verify OTP failed: %s", exc)
-        return {"success": False, "message": "Failed to verify OTP."}
+        return {"success": False, "message": "Failed."}
 
 
-# =========================================================
-# Register / Login
-# =========================================================
 @app.post("/api/users/register", response_model=UserResponse)
 async def register_user(user: UserCreate):
     existing_user = await users_collection.find_one({"phone": user.phone})
     if existing_user:
-        raise HTTPException(status_code=400, detail="Account already exists. Please login.")
-
+        raise HTTPException(status_code=400, detail="Account already exists.")
     user_data = {
         "id": str(uuid4()),
-        "name": user.name,
-        "phone": user.phone,
-        "email": user.email,
+        "name": user.name, "phone": user.phone, "email": user.email,
         "preferred_language": user.preferred_language,
         "emergency_contacts": [c.model_dump() for c in user.emergency_contacts],
     }
@@ -325,264 +334,157 @@ async def register_user(user: UserCreate):
 
 @app.post("/api/users/login")
 async def login_user(data: LoginRequest):
-    try:
-        user = await users_collection.find_one({"phone": data.phone})
-        if not user:
-            return {"success": False, "message": "User not found. Please register first."}
-        return {
-            "success": True,
-            "message": "Login successful",
-            "user": {
-                "id": user.get("id") or str(user["_id"]),
-                "name": user["name"],
-                "phone": user["phone"],
-                "preferred_language": user.get("preferred_language", "English"),
-                "emergency_contacts": user.get("emergency_contacts", []),
-            },
-        }
-    except Exception as exc:
-        logger.error("Login failed: %s", exc)
-        return {"success": False, "message": "Login failed. Please try again."}
+    user = await users_collection.find_one({"phone": data.phone})
+    if not user:
+        return {"success": False, "message": "User not found."}
+    return {
+        "success": True,
+        "user": {
+            "id": user.get("id") or str(user["_id"]),
+            "name": user["name"], "phone": user["phone"],
+            "preferred_language": user.get("preferred_language", "English"),
+            "emergency_contacts": user.get("emergency_contacts", []),
+        },
+    }
 
 
-# =========================================================
-# Photo
-# =========================================================
 @app.post("/api/users/{user_id}/photo")
 async def upload_user_photo(user_id: str, photo: UploadFile = File(...)):
     try:
-        if not photo.content_type or not photo.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="Only image files are allowed.")
         photo_data = await photo.read()
-        if len(photo_data) > 5 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="Photo must be smaller than 5 MB.")
-
         user = await find_user_by_any_id(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found.")
-
         photo_url = upload_photo_to_s3(user["id"], photo_data, photo.content_type)
-        await users_collection.update_one(
-            {"_id": user["_id"]}, {"$set": {"photo_url": photo_url}}
-        )
-        logger.info("Photo uploaded to S3: %s", photo_url)
+        await users_collection.update_one({"_id": user["_id"]}, {"$set": {"photo_url": photo_url}})
         return {"success": True, "photo_url": photo_url}
-    except HTTPException:
-        raise
     except Exception as exc:
         logger.error("Photo upload failed: %s", exc)
         raise HTTPException(status_code=500, detail="Photo upload failed.")
 
 
-@app.get("/api/users/{user_id}/photo")
-async def get_user_photo(user_id: str):
-    user = await find_user_by_any_id(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-    photo_data = user.get("photo_data")
-    if not photo_data:
-        raise HTTPException(status_code=404, detail="User photo not found.")
-    return Response(content=photo_data, media_type=user.get("photo_content_type", "image/jpeg"))
-
-
-# =========================================================
-# Emergency Contacts
-# =========================================================
 @app.put("/api/users/{user_id}/emergency-contacts")
 async def update_emergency_contacts(user_id: str, data: EmergencyContactsRequest):
-    try:
-        if len(data.contacts) < 1:
-            return {"success": False, "message": "At least 1 emergency contact is required."}
-        if len(data.contacts) > 5:
-            return {"success": False, "message": "Maximum 5 emergency contacts are allowed."}
-
-        user = await find_user_by_any_id(user_id)
-        if not user:
-            return {"success": False, "message": "User not found."}
-
-        contacts = [c.model_dump() for c in data.contacts]
-        await users_collection.update_one(
-            {"_id": user["_id"]},
-            {"$set": {"emergency_contacts": contacts}},
-        )
-        return {
-            "success": True,
-            "message": "Emergency contacts saved successfully.",
-            "emergency_contacts": contacts,
-        }
-    except Exception as exc:
-        logger.error("Emergency contacts update failed: %s", exc)
-        return {"success": False, "message": "Failed to save emergency contacts."}
+    user = await find_user_by_any_id(user_id)
+    if not user:
+        return {"success": False, "message": "User not found."}
+    contacts = [c.model_dump() for c in data.contacts]
+    await users_collection.update_one({"_id": user["_id"]}, {"$set": {"emergency_contacts": contacts}})
+    return {"success": True, "emergency_contacts": contacts}
 
 
 @app.get("/api/users/{user_id}/emergency-contacts")
 async def get_emergency_contacts(user_id: str):
-    try:
-        user = await find_user_by_any_id(user_id)
-        if not user:
-            return {"success": False, "message": "User not found."}
-        return {"success": True, "emergency_contacts": user.get("emergency_contacts", [])}
-    except Exception as exc:
-        logger.error("Failed to get emergency contacts: %s", exc)
-        return {"success": False, "message": "Failed to load emergency contacts."}
+    user = await find_user_by_any_id(user_id)
+    if not user:
+        return {"success": False, "message": "User not found."}
+    return {"success": True, "emergency_contacts": user.get("emergency_contacts", [])}
 
 
-# =========================================================
-# Escalation (2-min timer)
-# =========================================================
 async def escalate_to_authorities(user_id: str, lat: float, lon: float, emergency_type: str):
-    logger.info("Escalation timer started (%s) for user %s", emergency_type, user_id)
     await asyncio.sleep(120)
-
     if user_id not in active_emergencies:
-        logger.info("Emergency cancelled by user %s. Escalation aborted.", user_id)
         return
-
     user = await find_user_by_any_id(user_id)
     if not user:
         return
-
     name = user.get("name", "Unknown user")
     phone = user.get("phone", "")
     photo_url = user.get("photo_url", "")
     contacts = user.get("emergency_contacts", [])
     maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
-
-    html = f"""
-    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#7F1D1D;border-radius:20px;overflow:hidden;">
-      <div style="background:#000000;padding:24px;text-align:center;">
-        <div style="font-size:48px;">⚠️</div>
-        <h1 style="color:#DC2626;margin:0;font-size:22px;font-weight:800;">CRITICAL ESCALATION</h1>
-        <p style="color:#FCA5A5;margin:4px 0 0;font-size:13px;">{name} did not respond for 2 minutes</p>
+    html = f"""<div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#7F1D1D;border-radius:20px;">
+      <div style="background:#000;padding:24px;text-align:center;">
+        <h1 style="color:#DC2626;margin:0;">⚠️ CRITICAL ESCALATION</h1>
       </div>
-      <div style="background:#FFFFFF;padding:24px;">
-        <p style="color:#1A1A2E;font-size:14px;line-height:1.7;">
-          This is a <strong>critical escalation</strong>. The user has not cancelled the
-          <strong> {emergency_type} emergency</strong> alert within 2 minutes. Please reach them immediately.
-        </p>
-        <a href="{maps_url}" style="display:block;background:#DC2626;color:#FFF;text-align:center;padding:14px;border-radius:12px;text-decoration:none;font-weight:800;margin-top:16px;">
-          📍 OPEN LIVE LOCATION
-        </a>
-        <p style="margin-top:12px;font-size:13px;">📱 Call: <strong>+91 {phone}</strong></p>
-        {"<p><a href='"+photo_url+"'>View photo</a></p>" if photo_url else ""}
+      <div style="background:#FFF;padding:24px;">
+        <p>{name} needs immediate help!</p>
+        <a href="{maps_url}" style="display:block;background:#DC2626;color:#FFF;text-align:center;padding:14px;border-radius:12px;text-decoration:none;font-weight:800;">📍 LIVE LOCATION</a>
+        <p>📱 +91 {phone}</p>
       </div>
-    </div>
-    """
-
+    </div>"""
     contact_emails = [c.get("email", "").strip() for c in contacts if c.get("email", "").strip()]
     recipients = contact_emails if contact_emails else DEMO_EMAILS
-
     try:
-        await send_email(recipients, f"⚠️ CRITICAL: {name} — No response for 2 min", html)
-        print(f"✅ ESCALATION EMAIL SENT to {len(recipients)} people")
+        await send_email(recipients, f"⚠️ CRITICAL: {name}", html)
     except Exception as e:
-        print("Escalation email failed:", e)
-
+        print("Escalation failed:", e)
     active_emergencies.discard(user_id)
 
 
-# =========================================================
-# Safety / Medical emergency
-# =========================================================
 async def trigger_emergency(data: EmergencyActivationRequest, emergency_type: str):
-    print(f"🚨 TRIGGER EMERGENCY CALLED: {emergency_type} | user={data.user_id} | lat={data.latitude}, lon={data.longitude}")
+    print(f"🚨 TRIGGER EMERGENCY: {emergency_type} | user={data.user_id}")
     user = await find_user_by_any_id(data.user_id)
     if not user:
         return {"success": False, "message": "User not found."}
-
     name = user.get("name", "Unknown user")
     phone = user.get("phone", "")
     user_email = user.get("email", "").strip()
-    photo_url = user.get("photo_url", "")
+    photo_url = get_presigned_photo_url(user["id"]) or user.get("photo_url", "")
     contacts = user.get("emergency_contacts", [])
-
     maps_url = f"https://www.google.com/maps/search/?api=1&query={data.latitude},{data.longitude}"
-
+        # ⬇️ PHOTO HTML (S3 URL se load hogi)
     if photo_url:
-        photo_html = f"<img src='{photo_url}' style='width:90px;height:90px;border-radius:45px;object-fit:cover;border:3px solid #DC2626;' />"
+        photo_html = f"""
+        <div style="text-align:center;margin:0 0 16px 0;">
+            <img src="{photo_url}" alt="{name}"
+                 style="width:120px;height:120px;border-radius:60px;object-fit:cover;border:4px solid #DC2626;" />
+            <p style="margin:6px 0 0;color:#6B7280;font-size:11px;">📷 {name}'s photo</p>
+        </div>
+        """
     else:
-        photo_html = f"<div style='width:90px;height:90px;border-radius:45px;background:#DC2626;color:#FFF;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:800;'>{name[0].upper()}</div>"
+        photo_html = f"""
+        <div style="text-align:center;margin:0 0 16px 0;">
+            <div style="width:120px;height:120px;border-radius:60px;background:#DC2626;color:#FFF;margin:0 auto;line-height:120px;font-size:48px;font-weight:800;">{name[0].upper()}</div>
+            <p style="margin:6px 0 0;color:#6B7280;font-size:11px;">No photo uploaded</p>
+        </div>
+        """
 
     html = f"""
-    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#FEF2F2;border-radius:20px;overflow:hidden;border:3px solid #DC2626;">
-      <div style="background:#DC2626;padding:24px;text-align:center;">
-        <div style="font-size:44px;">🚨</div>
-        <h1 style="color:#FFF;margin:8px 0 0;font-size:22px;font-weight:800;">MYSHIELD {emergency_type} EMERGENCY</h1>
-        <p style="color:#FEE2E2;margin:6px 0 0;font-size:13px;">IMMEDIATE HELP REQUIRED</p>
-      </div>
-      <div style="background:#FFF;padding:24px;">
-        <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;">
-          {photo_html}
-          <div>
-            <h2 style="margin:0;color:#1A1A2E;font-size:20px;font-weight:800;">{name}</h2>
-            <p style="margin:4px 0 0;color:#6B7280;font-size:13px;">📱 <a href='tel:+91{phone}' style='color:#1A56DB;font-weight:700;'>+91 {phone}</a></p>
-          </div>
-        </div>
-        <div style="background:#FEF2F2;border-left:4px solid #DC2626;padding:14px;border-radius:8px;margin-bottom:18px;">
-          <p style="margin:0;color:#991B1B;font-size:14px;font-weight:600;">
-            <strong>{name}</strong> is in a <strong>{emergency_type} emergency</strong> and needs your immediate help.
-          </p>
-        </div>
-        <a href='{maps_url}' style="display:block;background:#1A56DB;color:#FFF;text-align:center;padding:16px;border-radius:12px;text-decoration:none;font-weight:800;font-size:16px;">
-          📍 VIEW LIVE LOCATION ON MAPS
-        </a>
-        <p style="background:#F3F4F6;padding:10px;border-radius:8px;font-family:monospace;font-size:12px;color:#4B5563;margin-top:12px;">
-          GPS: {data.latitude}, {data.longitude}
-        </p>
-      </div>
-      <div style="background:#F9FAFB;padding:14px;text-align:center;border-top:1px solid #E5E7EB;">
-        <p style="margin:0;color:#6B7280;font-size:11px;">Sent by <strong style="color:#1A56DB;">MyShield</strong> • Emergency Assistance App</p>
-      </div>
-    </div>
+    <html>
+    <body style="font-family: Arial, sans-serif; padding: 20px; background: #FEF2F2;">
+        <h1 style="color: #DC2626;">🚨 MYSHIELD {emergency_type} EMERGENCY</h1>
+        {photo_html}
+        <h2>{name} needs immediate help!</h2>
+        <p><strong>Mobile:</strong> +91 {phone}</p>
+        <p><strong>Location:</strong> <a href="{maps_url}">View on Google Maps</a></p>
+        <p>GPS: {data.latitude}, {data.longitude}</p>
+        {"<p><strong>Full photo:</strong> <a href='" + photo_url + "'>Open full photo</a></p>" if photo_url else ""}
+        <hr>
+        <p style="color: #DC2626; font-weight: bold;">Please contact immediately!</p>
+    </body>
+    </html>
     """
-
     contact_emails = [c.get("email", "").strip() for c in contacts if c.get("email", "").strip()]
     recipients = list(set(contact_emails + ([user_email] if user_email else [])))
     if not recipients:
         recipients = DEMO_EMAILS
-        print("⚠️ No emails found in DB — using DEMO_EMAILS")
-
     try:
         await send_email(recipients, f"🚨 MYSHIELD {emergency_type} EMERGENCY: {name}", html)
-        print(f"✅ EMERGENCY EMAIL SENT to {len(recipients)}: {recipients}")
+        print(f"✅ EMERGENCY EMAIL SENT to {recipients}")
     except Exception as e:
         print("❌ Email alert failed:", e)
-
     active_emergencies.add(data.user_id)
-    return {
-        "success": True,
-        "message": f"{emergency_type} emergency alert sent.",
-        "emails_sent_to": recipients,
-    }
+    return {"success": True, "emails_sent_to": recipients}
 
 
 @app.post("/api/emergency/safety")
 async def activate_safety_emergency(data: EmergencyActivationRequest, background_tasks: BackgroundTasks):
-    try:
-        result = await trigger_emergency(data, "SAFETY")
-        if result.get("success"):
-            background_tasks.add_task(escalate_to_authorities, data.user_id, data.latitude, data.longitude, "SAFETY")
-        return result
-    except Exception as exc:
-        logger.error("Safety emergency failed: %s", exc)
-        return {"success": False, "message": "Emergency activation failed."}
+    result = await trigger_emergency(data, "SAFETY")
+    if result.get("success"):
+        background_tasks.add_task(escalate_to_authorities, data.user_id, data.latitude, data.longitude, "SAFETY")
+    return result
 
 
 @app.post("/api/emergency/medical")
 async def activate_medical_emergency(data: EmergencyActivationRequest, background_tasks: BackgroundTasks):
-    try:
-        result = await trigger_emergency(data, "MEDICAL")
-        if result.get("success"):
-            background_tasks.add_task(escalate_to_authorities, data.user_id, data.latitude, data.longitude, "MEDICAL")
-        return result
-    except Exception as exc:
-        logger.error("Medical emergency failed: %s", exc)
-        return {"success": False, "message": "Emergency activation failed."}
+    result = await trigger_emergency(data, "MEDICAL")
+    if result.get("success"):
+        background_tasks.add_task(escalate_to_authorities, data.user_id, data.latitude, data.longitude, "MEDICAL")
+    return result
 
 
 @app.post("/api/emergency/cancel/{user_id}")
 async def cancel_emergency(user_id: str):
-    if user_id in active_emergencies:
-        active_emergencies.remove(user_id)
-        return {"success": True, "message": "Emergency cancelled successfully."}
-    return {"success": True, "message": "No active emergency to cancel."}
+    active_emergencies.discard(user_id)
+    return {"success": True}

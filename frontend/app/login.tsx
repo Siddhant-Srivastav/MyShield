@@ -15,7 +15,7 @@ import { useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const API_URL =
-  "http://192.168.1.3:8000";
+  "http://192.168.1.13:8000";
 
 export default function Login() {
   const router = useRouter();

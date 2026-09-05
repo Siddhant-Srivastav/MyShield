@@ -50,8 +50,16 @@ export default function GuidanceScreen() {
         </View>
       </Pressable>
 
-      {/* Route Guidance Card */}
-      <View style={[styles.card, styles.greenCard]}>
+      {/* ⬇️ ROUTE GUIDANCE CARD — AB CLICKABLE! */}
+      <Pressable
+        onPress={() => router.push("/route-guidance")}
+        style={({ pressed }) => [
+          styles.card,
+          styles.greenCard,
+          pressed && { opacity: 0.92 },
+        ]}
+        testID="route-guidance-btn"
+      >
         <View style={styles.circleGlowGreen}>
           <Feather name="map-pin" size={68} color="#FFFFFF" />
         </View>
@@ -65,7 +73,7 @@ export default function GuidanceScreen() {
         <View style={styles.arrowWrap}>
           <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
         </View>
-      </View>
+      </Pressable>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
@@ -87,10 +95,10 @@ export default function GuidanceScreen() {
         </View>
 
         {/* Emergency Contacts */}
-<Pressable
-  onPress={() => router.push("/contacts")}
-  style={styles.navItem}
->
+        <Pressable
+          onPress={() => router.push("/contacts")}
+          style={styles.navItem}
+        >
           <Ionicons name="people" size={22} color="#6B7280" />
           <Text style={styles.navText}>Emergency Contacts</Text>
         </Pressable>
@@ -232,4 +240,3 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
-

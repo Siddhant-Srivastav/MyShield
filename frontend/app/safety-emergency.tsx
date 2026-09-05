@@ -15,7 +15,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://192.168.1.3:8000";
+const API_URL = "http://192.168.1.13:8000";
 
 export default function SafetyEmergency() {
   const router = useRouter();

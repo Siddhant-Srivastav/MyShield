@@ -90,7 +90,7 @@ export default function EmergencyContacts() {
       console.log("CONTACTS:", validContacts);
 
       const response = await fetch(
-        `http://192.168.1.3:8000/api/users/${userId}/emergency-contacts`,
+        `http://192.168.1.13:8000/api/users/${userId}/emergency-contacts`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

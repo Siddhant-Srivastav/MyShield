@@ -90,7 +90,7 @@ export default function PhotoUpload() {
         } as any);
 
         const response = await fetch(
-            "http://192.168.1.3:8000/api/users/" +
+            "http://192.168.1.13:8000/api/users/" +
                 userId +
                 "/photo",
             {

@@ -47,11 +47,9 @@ const MAIN_DISEASES: Disease[] = [
 // ============ EXTRA DISEASES (shown on "View All" — replace with your final list later) ============
 const EXTRA_DISEASES: Disease[] = [
   { id: "fever", title: "High Fever", subtitle: "High temperature, chills, body ache", colors: ["#F87171", "#DC2626"], iconType: "mci", icon: "thermometer" },
-  { id: "diabetes", title: "Diabetes", subtitle: "High sugar, thirst, fatigue", colors: ["#C084FC", "#9333EA"], iconType: "mci", icon: "droplet" },
-  { id: "burns", title: "Burns", subtitle: "Skin damage from heat or chemicals", colors: ["#FB923C", "#C2410C"], iconType: "mci", icon: "fire" },
-  { id: "choking", title: "Choking", subtitle: "Blocked airway, cannot breathe", colors: ["#38BDF8", "#0369A1"], iconType: "mci", icon: "alert-circle" },
-  { id: "heatstroke", title: "Heat Stroke", subtitle: "Dizziness, hot skin, confusion", colors: ["#FACC15", "#CA8A04"], iconType: "mci", icon: "weather-sunny" },
-  { id: "poisoning", title: "Food Poisoning", subtitle: "Vomiting, cramps, diarrhea", colors: ["#4ADE80", "#15803D"], iconType: "mci", icon: "food-apple" },
+  { id: "choking", title: "Choking", subtitle: "Blocked airway, cannot breathe", colors: ["#38BDF8", "#0369A1"], iconType: "mci", icon: "alert-circle", route: "/choking-guidelines" },
+  { id: "heatstroke", title: "Heat Stroke", subtitle: "Dizziness, hot skin, confusion", colors: ["#FACC15", "#CA8A04"], iconType: "mci", icon: "weather-sunny", route: "/heat-stroke" },
+ { id: "poisoning", title: "Food Poisoning", subtitle: "Vomiting, cramps, diarrhea", colors: ["#4ADE80", "#15803D"], iconType: "mci", icon: "food-apple", route: "/food-poisoning" },
 ];
 
 // ============ WAVEFORM (animated while listening) ============

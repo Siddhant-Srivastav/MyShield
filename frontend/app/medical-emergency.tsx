@@ -1,470 +1,251 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
-  Animated,
-  Easing,
-  Image,
-  Modal,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-async function triggerEmergency(userId: string, emergencyType: "safety" | "medical") {
-  try {
-    // 1. GPS location lo
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Location Permission", "Please enable location to send emergency alert.");
-      return;
-    }
-
-    const loc = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.High,
-    });
-
-    // 2. Backend ko bhejo
-    const response = await fetch(
-      `http://192.168.1.3:8000/api/emergency/${emergencyType}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: userId,
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        }),
-      }
-    );
-
-    const data = await response.json();
-    if (data.success) {
-      Alert.alert(
-        "🚨 Emergency Alert Sent!",
-        `Alert sent to ${data.emails_sent_to.length} email(s) and ${data.sms_sent_to.length} SMS. Help is on the way.`
-      );
-    } else {
-      Alert.alert("Error", data.message || "Failed to send alert");
-    }
-  } catch (error) {
-    console.error("Emergency error:", error);
-    Alert.alert("Error", "Unable to send emergency alert");
-  }
-}
-
-const NAVY = "#0B1E3F";
-const BLUE = "#1A56DB";
-const MUTED = "#6B7280";
-const RED = "#DC2626";
-const LIGHT_RED = "#FEE2E2";
-const LIGHT_BLUE = "#EEF4FF";
-const GREEN = "#16A34A";
-
-function PulseRing({
-  delay,
-  size,
-  color = "rgba(220,38,38,0.35)",
-}: {
-  delay: number;
-  size: number;
-  color?: string;
-}) {
-  const scale = useRef(new Animated.Value(0.5)).current;
-  const opacity = useRef(new Animated.Value(0.6)).current;
-
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.parallel([
-          Animated.timing(scale, {
-            toValue: 1.4,
-            duration: 1800,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(opacity, {
-            toValue: 0,
-            duration: 1800,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 0.5, duration: 0, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0.6, duration: 0, useNativeDriver: true }),
-        ]),
-      ]),
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [delay, scale, opacity]);
-
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: "absolute",
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: 2,
-        borderColor: color,
-        opacity,
-        transform: [{ scale }],
-      }}
-    />
-  );
-}
+const API_URL = "http://192.168.1.13:8000"; // Phase 2 me Render URL
 
 export default function MedicalEmergency() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const [showToast, setShowToast] = useState(false);
-  const [seconds, setSeconds] = useState(8);
+  const params = useLocalSearchParams<{ userId?: string }>();
+  const [userId, setUserId] = useState(params.userId || "");
+  const [countdown, setCountdown] = useState(30);
+  const [phase, setPhase] = useState<"window" | "sent">("window");
+  const activated = useRef(false);
 
   useEffect(() => {
-    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => clearInterval(id);
+    (async () => {
+      if (!userId) {
+        try {
+          const raw = await AsyncStorage.getItem("user");
+          if (raw) setUserId(JSON.parse(raw).id);
+        } catch (e) {}
+      }
+    })();
   }, []);
 
-  const cancelAlert = () => {
-    setShowToast(true);
-    setTimeout(() => {
-      setShowToast(false);
-      router.replace("/home");
-    }, 1400);
+  useEffect(() => {
+    if (!userId || activated.current) return;
+    activated.current = true;
+    activate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  const activate = async () => {
+    try {
+      const { status: perm } = await Location.requestForegroundPermissionsAsync();
+      let lat = 0, lon = 0;
+      if (perm === "granted") {
+        const loc = await Location.getCurrentPositionAsync({});
+        lat = loc.coords.latitude;
+        lon = loc.coords.longitude;
+      }
+      await fetch(`${API_URL}/api/emergency/medical`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, latitude: lat, longitude: lon }),
+      });
+    } catch (e) {
+      Alert.alert("Connection Error", "Server se connect nahi ho paya.");
+    }
   };
 
-  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
-  const ss = String(seconds % 60).padStart(2, "0");
+  useEffect(() => {
+    if (phase !== "window") return;
+    const t = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(t);
+          setPhase("sent");
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [phase]);
+
+  const cancelAlert = async () => {
+    const inWindow = countdown > 0;
+    setPhase("sent");
+    try {
+      await fetch(`${API_URL}/api/emergency/cancel/${userId}`, { method: "POST" });
+    } catch (e) {}
+    Alert.alert(
+      "Alert Cancelled ✅",
+      inWindow
+        ? "30-second window me cancel ho gaya — koi email nahi gayi."
+        : "Emergency cancel ho gayi — escalation ruk gayi."
+    );
+    router.back();
+  };
+
+  const STATUS_CARDS = [
+    { icon: "map-marker", title: "Last known location", sub: "Your location has been detected" },
+    { icon: "message-alert", title: "Emergency email sent", sub: "Alerts sent to your emergency contacts" },
+    { icon: "crosshairs-gps", title: "GPS tracking active", sub: "Live location tracking is active" },
+    { icon: "account-alert", title: "Alerting emergency contacts", sub: "Your contacts are being notified" },
+  ];
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]} testID="medical-emergency-screen">
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Top bar */}
+      {/* TOP BAR */}
       <View style={styles.topBar}>
-        <Pressable
-          onPress={() => router.replace("/home")}
-          hitSlop={12}
-          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
-          testID="medical-back-btn"
-        >
-          <Ionicons name="arrow-back" size={22} color={NAVY} />
+        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={20} color="#1A1A2E" />
         </Pressable>
-
         <View style={styles.logoRow}>
-          <Image
-            source={require("../assets/images/myshield-shield.png")}
-            style={styles.logoShield}
-            resizeMode="contain"
-          />
+          <Ionicons name="shield-checkmark" size={22} color="#16A34A" />
           <View>
-            <Text style={styles.logoText}>
-              <Text style={{ color: NAVY }}>My</Text>
-              <Text style={{ color: BLUE }}>Shield</Text>
-            </Text>
-            <Text style={styles.logoTag}>Your Safety, Our Mission</Text>
+            <Text style={styles.logoTitle}>MyShield</Text>
+            <Text style={styles.logoSub}>Your Safety, Our Mission</Text>
           </View>
         </View>
-
-        <View style={styles.backBtnPlaceholder} />
+        <View style={styles.backBtn} />
       </View>
 
-      <View style={styles.body}>
-        {/* Red activated card */}
-        <LinearGradient
-          colors={["#EF4444", "#B91C1C"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.redCard}
-        >
-          <View style={styles.crossBubble}>
-            <MaterialCommunityIcons name="medical-bag" size={20} color={RED} />
+      {/* GREEN BANNER */}
+      <View style={styles.bannerWrap}>
+        <LinearGradient colors={["#16A34A", "#166534"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.banner}>
+          <View style={styles.sirenBubble}>
+            <MaterialCommunityIcons name="medical-bag" size={22} color="#16A34A" />
           </View>
-          <Text style={styles.redTitle}>MEDICAL EMERGENCY ACTIVATED</Text>
-          <Text style={styles.redSub}>
-            Stay calm. Emergency medical services are being contacted.
-          </Text>
+          <Text style={styles.bannerTitle}>MEDICAL EMERGENCY ACTIVATED</Text>
+          <Text style={styles.bannerSub}>Help is on the way. Stay calm, you are protected.</Text>
         </LinearGradient>
-
-        {/* Live status */}
-        <Text style={styles.sectionTitle}>LIVE STATUS</Text>
-        <View style={styles.statusCard} testID="live-status-card">
-          <View style={styles.phoneBubble}>
-            <Ionicons name="call" size={18} color="#FFFFFF" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.statusTitle}>Calling Ambulance Service (104)</Text>
-            <Text style={styles.statusSub}>Your call is being connected...</Text>
-          </View>
-        </View>
-.\venv\Scripts\Activate.ps1
-        {/* Calling block */}
-        <View style={styles.callBlock}>
-          <Text style={styles.callerLabel}>Calling Ambulance Helpline</Text>
-          <Text style={styles.callerNumber}>104</Text>
-
-          <View style={styles.callBtnWrap}>
-            <PulseRing delay={0} size={150} />
-            <PulseRing delay={600} size={150} />
-            <PulseRing delay={1200} size={150} />
-            <View style={styles.callBtn}>
-              <Ionicons name="call" size={28} color="#FFFFFF" />
-            </View>
-          </View>
-
-          <Text style={styles.duration}>
-            Call Duration: {mm}:{ss}
-          </Text>
-          <View style={styles.callingRow}>
-            <View style={styles.greenDot} />
-            <Text style={styles.callingText}>Calling...</Text>
-          </View>
-        </View>
-
-        {/* Cancel button */}
-        <Pressable
-          onPress={cancelAlert}
-          style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.85 }]}
-          testID="cancel-emergency-btn"
-        >
-          <View style={styles.cancelCircle}>
-            <Ionicons name="close" size={14} color={RED} />
-          </View>
-          <Text style={styles.cancelText}>CANCEL EMERGENCY</Text>
-        </Pressable>
-
-        {/* Info box */}
-        <View style={styles.infoBox} testID="medical-info-box">
-          <View style={styles.infoIcon}>
-            <Ionicons name="lock-closed" size={14} color={BLUE} />
-          </View>
-          <Text style={styles.infoText}>
-            Please keep your phone nearby and stay connected while emergency services are responding.
-          </Text>
-        </View>
       </View>
 
-      {/* Success toast */}
-      <Modal visible={showToast} transparent animationType="fade">
-        <View style={styles.toastWrap} pointerEvents="none">
-          <View style={styles.toast} testID="cancel-success-toast">
-            <View style={styles.toastIcon}>
-              <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+      {phase === "window" ? (
+        /* 30-SEC WINDOW */
+        <View style={styles.windowWrap}>
+          <View style={styles.windowCard}>
+            <Text style={styles.windowTitle}>ALERT EMAILS WILL BE SENT IN</Text>
+            <View style={styles.timerBubble}>
+              <Text style={styles.timerText}>{countdown}</Text>
             </View>
-            <Text style={styles.toastText}>Alert cancelled successfully</Text>
+            <Text style={styles.windowSec}>seconds</Text>
+            <Text style={styles.windowNote}>
+              Cancel within 30 seconds to stop the alert. Otherwise your photo,
+              live location & emergency email will be sent to all contacts.
+            </Text>
+            <Pressable onPress={cancelAlert} style={styles.cancelNowBtn}>
+              <Ionicons name="close-circle" size={18} color="#FFFFFF" />
+              <Text style={styles.cancelNowText}>CANCEL ALERT</Text>
+            </Pressable>
           </View>
         </View>
-      </Modal>
+      ) : (
+        /* STATUS */
+        <View style={styles.content}>
+          <View style={styles.sectionHead}>
+            <Text style={styles.sectionTitle}>EMERGENCY STATUS</Text>
+            <View style={styles.sectionUnderline} />
+          </View>
+
+          {STATUS_CARDS.map((c, i) => (
+            <View key={i} style={styles.card}>
+              <View style={styles.cardIcon}>
+                <MaterialCommunityIcons name={c.icon as any} size={20} color="#16A34A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>{c.title}</Text>
+                <Text style={styles.cardSub}>{c.sub}</Text>
+              </View>
+              <View style={styles.checkBubble}>
+                <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+              </View>
+            </View>
+          ))}
+
+          <View style={styles.infoBox}>
+            <View style={styles.infoIcon}>
+              <Ionicons name="lock-closed" size={16} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.infoTitle}>We are sharing your location in real-time.</Text>
+              <Text style={styles.infoSub}>Do not close the app while emergency is active.</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* BOTTOM: DEMO NOTICE + CANCEL */}
+      <View style={styles.bottom}>
+        {/* ⬇️ NAYA: DEMO NOTICE */}
+        <View style={styles.demoNotice}>
+          <Ionicons name="information-circle" size={16} color="#92400E" />
+          <Text style={styles.demoNoticeText}>
+            This feature is not working now — this is only for demo.
+          </Text>
+        </View>
+
+        <Pressable onPress={cancelAlert} style={styles.cancelBtn}>
+          <View style={styles.cancelIcon}>
+            <Ionicons name="close" size={16} color="#16A34A" />
+          </View>
+          <Text style={styles.cancelText}>CANCEL ALERT</Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
-
-  topBar: {
-    height: 48,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 8 },
+  backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  logoRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  logoTitle: { fontSize: 16, fontWeight: "800", color: "#16A34A" },
+  logoSub: { fontSize: 9, color: "#6B7280" },
+  bannerWrap: { paddingHorizontal: 14 },
+  banner: { borderRadius: 18, alignItems: "center", paddingVertical: 20, paddingHorizontal: 16 },
+  sirenBubble: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  bannerTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "800", textAlign: "center", letterSpacing: 0.5 },
+  bannerSub: { color: "#DCFCE7", fontSize: 11, textAlign: "center", marginTop: 4 },
+  windowWrap: { paddingHorizontal: 14, paddingTop: 16 },
+  windowCard: { backgroundColor: "#F0FDF4", borderWidth: 2, borderColor: "#16A34A", borderRadius: 18, alignItems: "center", padding: 20 },
+  windowTitle: { fontSize: 13, fontWeight: "800", color: "#14532D", letterSpacing: 0.5 },
+  timerBubble: { width: 90, height: 90, borderRadius: 45, backgroundColor: "#16A34A", alignItems: "center", justifyContent: "center", marginTop: 12 },
+  timerText: { fontSize: 40, fontWeight: "800", color: "#FFFFFF" },
+  windowSec: { fontSize: 12, color: "#14532D", fontWeight: "700", marginTop: 6 },
+  windowNote: { fontSize: 11, color: "#6B7280", textAlign: "center", marginTop: 12, lineHeight: 16 },
+  cancelNowBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#16A34A", borderRadius: 14, paddingVertical: 14, width: "100%", marginTop: 16 },
+  cancelNowText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800", letterSpacing: 0.5 },
+  content: { paddingHorizontal: 14, paddingTop: 14 },
+  sectionHead: { marginBottom: 10 },
+  sectionTitle: { fontSize: 14, fontWeight: "800", color: "#1A1A2E" },
+  sectionUnderline: { width: 34, height: 3, borderRadius: 2, backgroundColor: "#16A34A", marginTop: 4 },
+  card: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#EEF1F5", borderRadius: 14, padding: 12, marginBottom: 10, gap: 10 },
+  cardIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F0FDF4", alignItems: "center", justifyContent: "center" },
+  cardTitle: { fontSize: 13, fontWeight: "800", color: "#1A1A2E" },
+  cardSub: { fontSize: 10, color: "#6B7280", marginTop: 2 },
+  checkBubble: { width: 26, height: 26, borderRadius: 13, backgroundColor: "#16A34A", alignItems: "center", justifyContent: "center" },
+  infoBox: { flexDirection: "row", alignItems: "center", backgroundColor: "#EFF6FF", borderRadius: 14, padding: 12, gap: 10 },
+  infoIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#1A56DB", alignItems: "center", justifyContent: "center" },
+  infoTitle: { fontSize: 11, fontWeight: "800", color: "#1E3A8A" },
+  infoSub: { fontSize: 10, color: "#6B7280", marginTop: 2 },
+  bottom: { paddingHorizontal: 14, paddingBottom: 20, paddingTop: 8 },
+  demoNotice: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FCD34D",
+    borderRadius: 12, padding: 10, marginBottom: 10,
   },
-  backBtn: { width: 36, height: 36, alignItems: "flex-start", justifyContent: "center" },
-  backBtnPlaceholder: { width: 36, height: 36 },
-  logoRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  logoShield: { width: 26, height: 26 },
-  logoText: { fontSize: 18, fontWeight: "800" },
-  logoTag: { fontSize: 9, color: MUTED, marginTop: -2 },
-
-  body: { flex: 1, paddingHorizontal: 16 },
-
-  redCard: {
-    borderRadius: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    alignItems: "center",
-  },
-  crossBubble: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  redTitle: {
-    marginTop: 4,
-    color: "#FFFFFF",
-    fontSize: 19,
-    fontWeight: "800",
-    textAlign: "center",
-    letterSpacing: 0.4,
-    lineHeight: 22,
-  },
-  redSub: {
-    marginTop: 4,
-    color: "#FFFFFF",
-    fontSize: 11,
-    textAlign: "center",
-    lineHeight: 14,
-    opacity: 0.95,
-  },
-
-  sectionTitle: {
-    marginTop: 10,
-    fontSize: 13,
-    fontWeight: "800",
-    color: NAVY,
-    letterSpacing: 0.5,
-  },
-  statusCard: {
-    marginTop: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#EEF1F5",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 10,
-  },
-  phoneBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: RED,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statusTitle: { fontSize: 13, fontWeight: "800", color: NAVY },
-  statusSub: { fontSize: 11, color: MUTED, marginTop: 1 },
-
-  callBlock: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 4,
-  },
-  callerLabel: { fontSize: 13, fontWeight: "700", color: NAVY },
-  callerNumber: {
-    fontSize: 52,
-    fontWeight: "900",
-    color: RED,
-    letterSpacing: 1,
-    marginTop: 0,
-    marginBottom: 4,
-  },
-  callBtnWrap: {
-    width: 150,
-    height: 150,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 2,
-  },
-  callBtn: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: RED,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: RED,
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  duration: { marginTop: 6, fontSize: 13, fontWeight: "700", color: NAVY },
-  callingRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 },
-  greenDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: GREEN },
-  callingText: { fontSize: 12, color: MUTED, marginLeft: 6 },
-
-  cancelBtn: {
-    marginTop: 6,
-    height: 50,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: RED,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  cancelCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: RED,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelText: { color: RED, fontSize: 14, fontWeight: "800", letterSpacing: 0.5 },
-
-  infoBox: {
-    marginTop: 8,
-    marginBottom: 4,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: LIGHT_BLUE,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  infoIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  infoText: { flex: 1, fontSize: 11, color: NAVY, lineHeight: 15 },
-
-  toastWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.25)",
-  },
-  toast: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    gap: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-  },
-  toastIcon: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: GREEN,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  toastText: { color: NAVY, fontSize: 14, fontWeight: "700" },
+  demoNoticeText: { flex: 1, fontSize: 11.5, fontWeight: "700", color: "#92400E" },
+  cancelBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#16A34A", borderRadius: 14, height: 52, gap: 10 },
+  cancelIcon: { width: 26, height: 26, borderRadius: 13, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  cancelText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800", letterSpacing: 0.5 },
 });
-
-// Silence the unused LIGHT_RED warning (kept for potential future use of the inner light-red bubble).
-void LIGHT_RED;

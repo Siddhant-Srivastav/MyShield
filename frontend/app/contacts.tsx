@@ -17,12 +17,13 @@ import { useEffect, useState } from "react";
 import { BottomNav } from "./home";
 
 // ⚠️ Keep your local backend URL here (same IP you are already using)
-const API_BASE_URL = "http://192.168.1.3:8000";
+const API_BASE_URL = "http://192.168.1.13:8000";
 
 type EmergencyContact = {
   name: string;
   relationship: string;
   mobile: string;
+  email?: string;   // ⬅️ NAYA
 };
 
 const CONTACT_COLORS = ["#B46BFF", "#2ECC71", "#FF6B2C", "#1A56DB", "#E91E63"];
@@ -35,6 +36,7 @@ export default function EmergencyContactsScreen() {
   const [newName, setNewName] = useState("");
   const [newRelationship, setNewRelationship] = useState("");
   const [newMobile, setNewMobile] = useState("");
+  const [newEmail, setNewEmail] = useState("");   // ⬅️ NAYA
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -143,6 +145,7 @@ export default function EmergencyContactsScreen() {
     const name = newName.trim();
     const relationship = newRelationship.trim();
     const mobile = newMobile.trim();
+    const email = newEmail.trim();   // ⬅️ NAYA
     if (!name) {
       Alert.alert("Missing name", "Please enter the contact name.");
       return;
@@ -155,17 +158,23 @@ export default function EmergencyContactsScreen() {
       Alert.alert("Missing mobile number", "Please enter the mobile number.");
       return;
     }
+    // ⬇️ NAYA: Email format validation (agar bhara hai to sahi ho)
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      Alert.alert("Invalid email", "Please enter a valid email address.");
+      return;
+    }
     if (contacts.length >= 5) {
       Alert.alert("Maximum reached", "You can have a maximum of 5 emergency contacts.");
       return;
     }
-    const newContact: EmergencyContact = { name, relationship, mobile };
+    const newContact: EmergencyContact = { name, relationship, mobile, email };
     const updatedContacts = [...contacts, newContact];
     const success = await saveContacts(updatedContacts);
     if (success) {
       setNewName("");
       setNewRelationship("");
       setNewMobile("");
+      setNewEmail("");   // ⬅️ NAYA
       setModalVisible(false);
       Alert.alert("Contact added", name + " has been added to your emergency contacts");
     }
@@ -205,7 +214,7 @@ export default function EmergencyContactsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.body}>
-        {/* ===== White header with logo (same style as Home screen) ===== */}
+        {/* ===== White header with logo ===== */}
         <View style={styles.header}>
           <Image
             source={require("../assets/images/myshield-shield.png")}
@@ -271,7 +280,10 @@ export default function EmergencyContactsScreen() {
                   <Text style={styles.relationshipText}>
                     {contact.relationship}
                   </Text>
-                  <Text style={styles.contactNumber}>{contact.mobile}</Text>
+                  <Text style={styles.contactNumber}>📱 {contact.mobile}</Text>
+                  {contact.email ? (
+                    <Text style={styles.contactEmail}>✉️ {contact.email}</Text>
+                  ) : null}
                 </View>
                 <Pressable
                   onPress={() => handleRemoveContact(contact, index)}
@@ -356,6 +368,17 @@ export default function EmergencyContactsScreen() {
               value={newMobile}
               onChangeText={setNewMobile}
             />
+            {/* ⬇️ NAYA: Email input */}
+            <TextInput
+              style={styles.input}
+              placeholder="Email address (optional)"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={newEmail}
+              onChangeText={setNewEmail}
+            />
             <Pressable
               style={styles.saveButton}
               onPress={handleAddContact}
@@ -371,7 +394,6 @@ export default function EmergencyContactsScreen() {
         </View>
       </Modal>
 
-      {/* ===== Same bottom navigation as Home screen (fits perfectly) ===== */}
       <BottomNav active="contacts" />
     </SafeAreaView>
   );
@@ -421,7 +443,8 @@ const styles = StyleSheet.create({
   avatarText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
   contactName: { fontSize: 14, fontWeight: "700", color: "#111827" },
   relationshipText: { marginTop: 1, color: "#1A56DB", fontSize: 10, fontWeight: "600" },
-  contactNumber: { marginTop: 1, color: "#6B7280", fontSize: 11 },
+  contactNumber: { marginTop: 2, color: "#6B7280", fontSize: 11 },
+  contactEmail: { marginTop: 2, color: "#1A56DB", fontSize: 11 },   // ⬅️ NAYA
   deleteButton: {
     width: 32,
     height: 32,

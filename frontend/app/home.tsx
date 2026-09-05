@@ -59,7 +59,7 @@ export default function Home() {
               <View style={[styles.iconInner, { backgroundColor: "#FEE2E2" }]}>
                 <MaterialCommunityIcons
                   name="shield-alert"
-                  size={34}
+                  size={18}
                   color="#B91C1C"
                 />
               </View>
@@ -91,7 +91,7 @@ export default function Home() {
               <View style={[styles.iconInner, { backgroundColor: "#DCFCE7" }]}>
                 <MaterialCommunityIcons
                   name="medical-bag"
-                  size={32}
+                  size={18}
                   color="#15803D"
                 />
               </View>
@@ -205,9 +205,8 @@ const styles = StyleSheet.create({
     color: MUTED,
     textAlign: "center",
   },
-  /* Cards flex to fill the screen -> NO scrolling needed */
   cardWrap: { flex: 1 },
-  cardWrapSecond: { marginTop: 12 },
+  cardWrapSecond: { marginTop: 24 },
   card: {
     flex: 1,
     borderRadius: 20,
@@ -217,10 +216,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconBubble: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    borderWidth: 3,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 2,
     borderColor: "rgba(255,255,255,0.7)",
     backgroundColor: "rgba(255,255,255,0.25)",
     alignItems: "center",
@@ -228,9 +227,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   iconInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
