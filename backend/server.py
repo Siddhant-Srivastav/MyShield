@@ -126,7 +126,7 @@ logger = logging.getLogger("myshield")
 
 active_emergencies = set()
 
-# ============ SENDGRID HTTPS EMAIL SHIM (Render-safe) ============
+# ============ SENDGRID HTTPS EMAIL SHIM v2 (Render-safe) ============
 import os as _os
 import json as _json
 import urllib.request as _urlreq
@@ -135,6 +135,16 @@ import smtplib as _smtplib
 
 _SENDGRID_KEY = _os.getenv("SENDGRID_API_KEY", "").strip()
 _FROM_EMAIL = _os.getenv("GMAIL_ADDRESS", "myshield360@gmail.com").strip()
+
+def _decode_part(part):
+    try:
+        raw = part.get_payload(decode=True)
+        if not raw:
+            return ""
+        charset = part.get_content_charset() or "utf-8"
+        return raw.decode(charset, errors="replace")
+    except Exception:
+        return ""
 
 class _SendGridSMTP:
     def __init__(self, host="", port=0, *a, **k): pass
@@ -153,16 +163,26 @@ class _SendGridSMTP:
         if not isinstance(msg, str):
             msg = msg.as_string()
         if isinstance(to_addrs, str):
-            to_addrs = [to_addrs]
-        subject, body = "", msg
+            to_addrs = [t.strip() for t in to_addrs.split(",") if t.strip()]
+        subject, body = "", ""
         try:
             m = _emailmod.message_from_string(msg)
             subject = str(m.get("Subject") or "")
-            p = m.get_payload(decode=True)
-            if p:
-                body = p.decode("utf-8", errors="replace")
+            if m.is_multipart():
+                for ctype in ("text/html", "text/plain"):
+                    for part in m.walk():
+                        if part.get_content_type() == ctype:
+                            body = _decode_part(part)
+                            if body:
+                                break
+                    if body:
+                        break
+            else:
+                body = _decode_part(m)
         except Exception:
-            pass
+            body = ""
+        if not body:
+            body = msg
         html = body if "<html" in body.lower() else body.replace("\n", "<br>")
         data = _json.dumps({
             "personalizations": [{"to": [{"email": e} for e in to_addrs]}],
@@ -190,8 +210,8 @@ class _SendGridSMTP:
 if _SENDGRID_KEY:
     _smtplib.SMTP = _SendGridSMTP
     _smtplib.SMTP_SSL = _SendGridSMTP
-    print("📧 SendGrid HTTPS email shim ACTIVE")
-# ==================================================================
+    print("📧 SendGrid shim v2 ACTIVE")
+# ====================================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting MyShield API...")
