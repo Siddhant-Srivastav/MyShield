@@ -126,7 +126,72 @@ logger = logging.getLogger("myshield")
 
 active_emergencies = set()
 
+# ============ SENDGRID HTTPS EMAIL SHIM (Render-safe) ============
+import os as _os
+import json as _json
+import urllib.request as _urlreq
+import email as _emailmod
+import smtplib as _smtplib
 
+_SENDGRID_KEY = _os.getenv("SENDGRID_API_KEY", "").strip()
+_FROM_EMAIL = _os.getenv("GMAIL_ADDRESS", "myshield360@gmail.com").strip()
+
+class _SendGridSMTP:
+    def __init__(self, host="", port=0, *a, **k): pass
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def ehlo(self): pass
+    def helo(self): pass
+    def starttls(self, *a, **k): pass
+    def login(self, *a, **k): pass
+    def quit(self): pass
+    def close(self): pass
+
+    def sendmail(self, from_addr, to_addrs, msg, *a, **k):
+        if not _SENDGRID_KEY:
+            raise _smtplib.SMTPException("SENDGRID_API_KEY not set")
+        if not isinstance(msg, str):
+            msg = msg.as_string()
+        if isinstance(to_addrs, str):
+            to_addrs = [to_addrs]
+        subject, body = "", msg
+        try:
+            m = _emailmod.message_from_string(msg)
+            subject = str(m.get("Subject") or "")
+            p = m.get_payload(decode=True)
+            if p:
+                body = p.decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        html = body if "<html" in body.lower() else body.replace("\n", "<br>")
+        data = _json.dumps({
+            "personalizations": [{"to": [{"email": e} for e in to_addrs]}],
+            "from": {"email": _FROM_EMAIL, "name": "MyShield Safety"},
+            "subject": subject or "MyShield Alert",
+            "content": [{"type": "text/html", "value": html}],
+        }).encode()
+        req = _urlreq.Request(
+            "https://api.sendgrid.com/v3/mail/send",
+            data=data,
+            headers={"Authorization": "Bearer " + _SENDGRID_KEY,
+                     "Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with _urlreq.urlopen(req, timeout=30) as res:
+                print("✅ EMAIL SENT via SendGrid to", to_addrs, res.status)
+        except Exception as e:
+            print("❌ SENDGRID ERROR:", e)
+            raise _smtplib.SMTPException(str(e))
+
+    def send_message(self, msg, *a, **k):
+        return self.sendmail(msg.get("From", ""), msg.get_all("To") or [], msg)
+
+if _SENDGRID_KEY:
+    _smtplib.SMTP = _SendGridSMTP
+    _smtplib.SMTP_SSL = _SendGridSMTP
+    print("📧 SendGrid HTTPS email shim ACTIVE")
+# ==================================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting MyShield API...")
@@ -142,70 +207,7 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error("Error while closing MongoDB: %s", exc)
 
-# ============ RESEND HTTPS EMAIL SHIM (Render-safe, ADD-ONLY) ============
-import json as _json
-import urllib.request as _urlreq
-import email as _emailmod
 
-_RESEND_KEY = os.getenv("RESEND_API_KEY", "")
-
-class _ResendSMTP:
-    """smtplib.SMTP drop-in replacement — email Resend HTTPS se bhejta hai."""
-    def __init__(self, host="", port=0, *a, **k): pass
-    def __enter__(self): return self
-    def __exit__(self, *a): return False
-    def ehlo(self): pass
-    def helo(self): pass
-    def starttls(self, *a, **k): pass
-    def login(self, *a, **k): pass
-    def quit(self): pass
-    def close(self): pass
-
-    def sendmail(self, from_addr, to_addrs, msg, *a, **k):
-        if not _RESEND_KEY:
-            raise RuntimeError("RESEND_API_KEY not set")
-        if not isinstance(msg, str):
-            msg = msg.as_string()
-        if isinstance(to_addrs, str):
-            to_addrs = [to_addrs]
-        subject, body = "", msg
-        try:
-            m = _emailmod.message_from_string(msg)
-            subject = str(m.get("Subject") or "")
-            payload = m.get_payload(decode=True)
-            if payload:
-                body = payload.decode("utf-8", errors="replace")
-        except Exception:
-            pass
-        data = _json.dumps({
-            "from": "MyShield Safety <onboarding@resend.dev>",
-            "to": to_addrs,
-            "subject": subject or "MyShield Alert",
-            "html": body if "<html" in body.lower() else body.replace("\n", "<br>"),
-        }).encode()
-        req = _urlreq.Request(
-            "https://api.resend.com/emails",
-            data=data,
-            headers={"Authorization": "Bearer " + _RESEND_KEY,
-                     "Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with _urlreq.urlopen(req, timeout=30) as res:
-                print("✅ EMAIL SENT via Resend to", to_addrs)
-        except Exception as e:
-            print("❌ RESEND ERROR:", e)
-            raise
-
-    def send_message(self, msg, *a, **k):
-        return self.sendmail(msg.get("From", ""), msg.get_all("To") or [], msg)
-
-if _RESEND_KEY:
-    import smtplib as _smtplib
-    _smtplib.SMTP = _ResendSMTP
-    _smtplib.SMTP_SSL = _ResendSMTP
-    print("📧 Resend HTTPS email shim ACTIVE")
-# ========================================================================
 app = FastAPI(title="MyShield API", version="1.2.0", lifespan=lifespan)
 otp_store = {}
 
