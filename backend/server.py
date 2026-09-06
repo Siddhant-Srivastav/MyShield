@@ -13,6 +13,17 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+# ============ RENDER IPv6 FIX (Gmail SMTP ke liye) ============
+import socket as _socket
+
+_original_getaddrinfo = _socket.getaddrinfo
+
+def _ipv4_only_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    return _original_getaddrinfo(host, port, _socket.AF_INET, type, proto, flags)
+
+_socket.getaddrinfo = _ipv4_only_getaddrinfo
+# ==============================================================
+
 # ============ AWS S3 - LAZY INIT (server start nahi tootega) ============
 s3_client = None
 
