@@ -197,8 +197,9 @@ export default function Register() {
                 return;
               }
 
+              
               try {
-                const response = await fetch("http://.168.1.13:8000/api/users/register", {
+                const response = await fetch("https://myshield-api.onrender.com/api/users/register", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",

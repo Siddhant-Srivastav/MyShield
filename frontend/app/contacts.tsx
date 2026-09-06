@@ -101,7 +101,7 @@ export default function EmergencyContactsScreen() {
       Alert.alert("Error", "User information is missing. Please login again.");
       return false;
     }
-    if (updatedContacts.length < 1) {
+    if (updatedContacts.length < 2) {
       Alert.alert(
         "Minimum contacts required",
         "MyShield requires at least 2 emergency contacts."
