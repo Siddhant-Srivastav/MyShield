@@ -14,13 +14,13 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL =
-  "https://myshield-api.onrender.com";
+const API_URL = "https://myshield-api.onrender.com";
 
 export default function Login() {
   const router = useRouter();
 
-  const [phone, setPhone] = useState("");
+  // ✅ CHANGE 1: phone → email
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
 
   const [otpSent, setOtpSent] = useState(false);
@@ -30,61 +30,42 @@ export default function Login() {
   // SEND OTP
   // =========================
   const handleSendOTP = async () => {
-    const cleanPhone = phone.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
-    if (!cleanPhone) {
-      Alert.alert(
-        "Phone number required",
-        "Please enter your phone number."
-      );
+    if (!cleanEmail) {
+      Alert.alert("Email required", "Please enter your email address.");
       return;
     }
 
-    if (cleanPhone.length !== 10) {
-      Alert.alert(
-        "Invalid phone number",
-        "Please enter a valid 10-digit phone number."
-      );
+    // ✅ CHANGE 2: Email validation (basic)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      Alert.alert("Invalid email", "Please enter a valid email address.");
       return;
     }
 
     try {
       setLoading(true);
 
-      const response = await fetch(
-        `${API_URL}/api/users/send-otp`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            phone: cleanPhone,
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/api/users/send-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // ✅ CHANGE 3: email field bhejo (phone ki jagah)
+        body: JSON.stringify({ email: cleanEmail }),
+      });
 
       const data = await response.json();
-
       console.log("SEND OTP RESPONSE:", data);
 
       if (!response.ok || !data.success) {
-        Alert.alert(
-          "Unable to send OTP",
-          data.message || "Something went wrong."
-        );
+        Alert.alert("Unable to send OTP", data.message || "Something went wrong.");
         return;
       }
 
       setOtpSent(true);
-
-      Alert.alert(
-        "OTP Sent",
-        "A verification OTP has been sent to your mobile number."
-      );
+      Alert.alert("OTP Sent", "A verification OTP has been sent to your email.");
     } catch (error) {
       console.error("SEND OTP ERROR:", error);
-
       Alert.alert(
         "Connection error",
         "Unable to connect to MyShield server. Please check your internet connection."
@@ -98,83 +79,46 @@ export default function Login() {
   // VERIFY OTP
   // =========================
   const handleVerifyOTP = async () => {
-    const cleanPhone = phone.trim();
+    const cleanEmail = email.trim().toLowerCase();
     const cleanOTP = otp.trim();
 
     if (!cleanOTP) {
-      Alert.alert(
-        "OTP required",
-        "Please enter the OTP."
-      );
+      Alert.alert("OTP required", "Please enter the OTP.");
       return;
     }
 
     if (cleanOTP.length !== 6) {
-      Alert.alert(
-        "Invalid OTP",
-        "Please enter the 6-digit OTP."
-      );
+      Alert.alert("Invalid OTP", "Please enter the 6-digit OTP.");
       return;
     }
 
     try {
       setLoading(true);
 
-      const response = await fetch(
-        `${API_URL}/api/users/verify-otp`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            phone: cleanPhone,
-            otp: cleanOTP,
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/api/users/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // ✅ CHANGE 3: email field
+        body: JSON.stringify({ email: cleanEmail, otp: cleanOTP }),
+      });
 
       const data = await response.json();
-
       console.log("VERIFY OTP RESPONSE:", data);
 
       if (!response.ok || !data.success) {
-        Alert.alert(
-          "Verification failed",
-          data.message || "Invalid OTP."
-        );
+        Alert.alert("Verification failed", data.message || "Invalid OTP.");
         return;
       }
 
-// Login successful
-console.log("USER LOGIN SUCCESS:", data.user);
+      console.log("USER LOGIN SUCCESS:", data.user);
+      await AsyncStorage.setItem("user", JSON.stringify(data.user));
+      console.log("USER SAVED:", await AsyncStorage.getItem("user"));
 
-// SAVE LOGGED-IN USER
-await AsyncStorage.setItem(
-  "user",
-  JSON.stringify(data.user)
-);
-
-console.log(
-  "USER SAVED:",
-  await AsyncStorage.getItem("user")
-);
-
-Alert.alert(
-  "Welcome back!",
-  "Login successful.",
-        [
-          {
-            text: "Continue",
-            onPress: () => {
-              router.replace("/home");
-            },
-          },
-        ]
-      );
+      Alert.alert("Welcome back!", "Login successful.", [
+        { text: "Continue", onPress: () => router.replace("/home") },
+      ]);
     } catch (error) {
       console.error("VERIFY OTP ERROR:", error);
-
       Alert.alert(
         "Connection error",
         "Unable to connect to MyShield server. Please check your internet connection."
@@ -184,75 +128,50 @@ Alert.alert(
     }
   };
 
-  // =========================
-  // CHANGE NUMBER
-  // =========================
-  const handleChangeNumber = () => {
+  // ✅ CHANGE 4: Function rename
+  const handleChangeEmail = () => {
     setOtpSent(false);
     setOtp("");
   };
 
   return (
-    <SafeAreaView
-      style={styles.safe}
-      edges={["top", "bottom"]}
-    >
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="#FFFFFF"
-      />
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Header */}
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
           hitSlop={12}
-          style={({ pressed }) => [
-            styles.backBtn,
-            pressed && { opacity: 0.7 },
-          ]}
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
           testID="login-back-btn"
         >
-          <Ionicons
-            name="chevron-back"
-            size={24}
-            color="#1A1A2E"
-          />
+          <Ionicons name="chevron-back" size={24} color="#1A1A2E" />
         </Pressable>
       </View>
 
       {/* Body */}
-      <View
-        style={styles.body}
-        testID="login-screen"
-      >
-        <Text style={styles.title}>
-          Login
-        </Text>
-
+      <View style={styles.body} testID="login-screen">
+        <Text style={styles.title}>Login</Text>
         <Text style={styles.subtitle}>
           Welcome back. Sign in to continue to MyShield.
         </Text>
 
-        {/* PHONE NUMBER */}
+        {/* ✅ CHANGE 5: EMAIL INPUT (phone ki jagah) */}
         <View style={styles.inputContainer}>
-          <Ionicons
-            name="call-outline"
-            size={21}
-            color="#6B7280"
-            style={styles.inputIcon}
-          />
+          <Ionicons name="mail-outline" size={21} color="#6B7280" style={styles.inputIcon} />
 
           <TextInput
             style={styles.input}
-            placeholder="Enter mobile number"
+            placeholder="Enter your email"
             placeholderTextColor="#9CA3AF"
-            keyboardType="phone-pad"
-            maxLength={10}
-            value={phone}
-            onChangeText={setPhone}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            value={email}
+            onChangeText={setEmail}
             editable={!otpSent}
-            testID="login-phone-input"
+            testID="login-email-input"
           />
         </View>
 
@@ -260,31 +179,19 @@ Alert.alert(
         {otpSent && (
           <>
             <View style={styles.otpHeader}>
-              <Text style={styles.otpTitle}>
-                Enter OTP
-              </Text>
-
-              <Pressable
-                onPress={handleChangeNumber}
-              >
-                <Text style={styles.changeNumber}>
-                  Change number
-                </Text>
+              <Text style={styles.otpTitle}>Enter OTP</Text>
+              <Pressable onPress={handleChangeEmail}>
+                <Text style={styles.changeNumber}>Change email</Text>
               </Pressable>
             </View>
 
+            {/* ✅ CHANGE 6: Subtitle update */}
             <Text style={styles.otpSubtitle}>
-              Enter the 6-digit OTP sent to your mobile number.
+              Enter the 6-digit OTP sent to your email.
             </Text>
 
             <View style={styles.inputContainer}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={21}
-                color="#6B7280"
-                style={styles.inputIcon}
-              />
-
+              <Ionicons name="lock-closed-outline" size={21} color="#6B7280" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter 6-digit OTP"
@@ -301,21 +208,12 @@ Alert.alert(
 
         {/* BUTTON */}
         <Pressable
-          onPress={
-            otpSent
-              ? handleVerifyOTP
-              : handleSendOTP
-          }
+          onPress={otpSent ? handleVerifyOTP : handleSendOTP}
           disabled={loading}
           style={({ pressed }) => [
             styles.loginBtn,
-            pressed &&
-              !loading && {
-                opacity: 0.8,
-              },
-            loading && {
-              opacity: 0.6,
-            },
+            pressed && !loading && { opacity: 0.8 },
+            loading && { opacity: 0.6 },
           ]}
           testID="login-continue-btn"
         >
@@ -324,32 +222,17 @@ Alert.alert(
           ) : (
             <>
               <Text style={styles.loginBtnText}>
-                {otpSent
-                  ? "Verify OTP"
-                  : "Send OTP"}
+                {otpSent ? "Verify OTP" : "Send OTP"}
               </Text>
-
-              <Ionicons
-                name="arrow-forward"
-                size={18}
-                color="#FFFFFF"
-              />
+              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
             </>
           )}
         </Pressable>
 
-        {/* RESEND OTP */}
         {otpSent && (
-          <Pressable
-            onPress={handleSendOTP}
-            disabled={loading}
-            style={styles.resendBtn}
-          >
+          <Pressable onPress={handleSendOTP} disabled={loading} style={styles.resendBtn}>
             <Text style={styles.resendText}>
-              Didn't receive the OTP?{" "}
-              <Text style={styles.resendBlue}>
-                Resend OTP
-              </Text>
+              Didn't receive the OTP? <Text style={styles.resendBlue}>Resend OTP</Text>
             </Text>
           </Pressable>
         )}
@@ -359,43 +242,12 @@ Alert.alert(
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-
-  header: {
-    height: 48,
-    paddingHorizontal: 12,
-    justifyContent: "center",
-  },
-
-  backBtn: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  body: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-  },
-
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1A1A2E",
-  },
-
-  subtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    color: "#6B7280",
-    lineHeight: 20,
-  },
-
+  safe: { flex: 1, backgroundColor: "#FFFFFF" },
+  header: { height: 48, paddingHorizontal: 12, justifyContent: "center" },
+  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  body: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
+  title: { fontSize: 28, fontWeight: "700", color: "#1A1A2E" },
+  subtitle: { marginTop: 8, fontSize: 14, color: "#6B7280", lineHeight: 20 },
   inputContainer: {
     height: 54,
     marginTop: 32,
@@ -406,43 +258,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 14,
   },
-
-  inputIcon: {
-    marginRight: 10,
-  },
-
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: "#1A1A2E",
-  },
-
+  inputIcon: { marginRight: 10 },
+  input: { flex: 1, fontSize: 16, color: "#1A1A2E" },
   otpHeader: {
     marginTop: 28,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-
-  otpTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1A1A2E",
-  },
-
-  changeNumber: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1A56DB",
-  },
-
-  otpSubtitle: {
-    marginTop: 5,
-    fontSize: 13,
-    color: "#6B7280",
-    lineHeight: 18,
-  },
-
+  otpTitle: { fontSize: 18, fontWeight: "700", color: "#1A1A2E" },
+  changeNumber: { fontSize: 13, fontWeight: "600", color: "#1A56DB" },
+  otpSubtitle: { marginTop: 5, fontSize: 13, color: "#6B7280", lineHeight: 18 },
   loginBtn: {
     height: 54,
     marginTop: 20,
@@ -453,25 +279,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
-
-  loginBtnText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  resendBtn: {
-    marginTop: 20,
-    alignItems: "center",
-  },
-
-  resendText: {
-    fontSize: 13,
-    color: "#6B7280",
-  },
-
-  resendBlue: {
-    color: "#1A56DB",
-    fontWeight: "700",
-  },
+  loginBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  resendBtn: { marginTop: 20, alignItems: "center" },
+  resendText: { fontSize: 13, color: "#6B7280" },
+  resendBlue: { color: "#1A56DB", fontWeight: "700" },
 });

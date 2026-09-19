@@ -4,7 +4,7 @@
     "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/myshield-shield.png",
+    "icon": "./assets/images/app-icon.png",
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -18,9 +18,13 @@
       "package": "com.myshield.app",
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
-  "foregroundImage": "./assets/images/myshield-shield.png",
+  "foregroundImage": "./assets/images/app-icon.png",
   "backgroundColor": "#0A1628"
 },
+"updates": {
+  "url": "https://u.expo.dev/1a30f9dd-3813-4b46-9697-c0b17d23d7e5"
+},
+"runtimeVersion": "1.0.0",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

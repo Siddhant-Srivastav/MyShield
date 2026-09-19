@@ -1,7 +1,7 @@
 import {
-  Image,
-  Pressable,
-  ScrollView,
+Image,
+Pressable,
+ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -10,6 +10,8 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -333,13 +335,21 @@ export default function EmergencyContactsScreen() {
 
       {/* ===== Add Contact Modal ===== */}
       <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+  visible={modalVisible}
+  transparent
+  animationType="slide"
+  onRequestClose={() => setModalVisible(false)}
+>
+  <KeyboardAvoidingView
+    style={styles.modalOverlay}
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+  >
+    <ScrollView
+      contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Emergency Contact</Text>
               <Pressable onPress={() => setModalVisible(false)}>
@@ -390,9 +400,10 @@ export default function EmergencyContactsScreen() {
                 <Text style={styles.saveButtonText}>Save Contact</Text>
               )}
             </Pressable>
-          </View>
-        </View>
-      </Modal>
+                  </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  </Modal>
 
       <BottomNav active="contacts" />
     </SafeAreaView>

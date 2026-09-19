@@ -4,6 +4,7 @@ from pathlib import Path
 load_dotenv()
 from uuid import uuid4
 import logging
+import re
 import secrets
 import time
 import os
@@ -346,23 +347,27 @@ async def health_check():
 @app.post("/api/users/send-otp")
 async def send_otp(data: SendOTPRequest):
     try:
-        phone = data.phone.strip()
-        user = await users_collection.find_one({"phone": phone})
+        email = data.email.strip().lower()
+        
+        # Email validation
+        email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+        if not re.match(email_regex, email):
+            return {"success": False, "message": "Invalid email format."}
+        
+        # Case-insensitive email search
+        user = await users_collection.find_one(
+            {"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}}
+        )
         if not user:
-            return {"success": False, "message": "User not found."}
+            return {"success": False, "message": "No account found with this email. Please register first."}
 
         otp = str(secrets.randbelow(900000) + 100000)
-        otp_store[phone] = {"otp": otp, "expires_at": time.time() + 300}
-
-        message = f"MyShield: Your login OTP is {otp}. Valid for 5 minutes."
+        otp_store[email] = {"otp": otp, "expires_at": time.time() + 300}
 
         print("=" * 60)
-        print(f"SENDING OTP to {phone} | OTP: {otp}")
+        print(f"SENDING OTP to {email} | OTP: {otp}")
         print(f"📧 [BACKUP OTP] Terminal par OTP: {otp} (agar email nahi aayi)")
-        await send_sms(phone, message)
 
-        user_email = user.get("email", "").strip()
-        target = user_email if user_email else DEMO_EMAILS
         try:
             otp_html = f"""
             <div style="font-family:sans-serif;max-width:450px;margin:auto;padding:24px;border:2px solid #1A56DB;border-radius:16px">
@@ -370,8 +375,8 @@ async def send_otp(data: SendOTPRequest):
               <div style="background:#EEF4FF;padding:18px;text-align:center;font-size:34px;font-weight:bold;letter-spacing:8px;color:#1A56DB;border-radius:12px">{otp}</div>
               <p style="color:#6B7280">Valid for 5 minutes. Do not share.</p>
             </div>"""
-            await send_email(target, "MyShield Login OTP", otp_html)
-            print("✅ OTP EMAIL SENT to", target)
+            await send_email(email, "MyShield Login OTP", otp_html)
+            print("✅ OTP EMAIL SENT to", email)
         except Exception as e:
             print("Email OTP failed:", e)
         print("=" * 60)
@@ -379,39 +384,39 @@ async def send_otp(data: SendOTPRequest):
     except Exception as exc:
         logger.error("Send OTP failed: %s", exc)
         return {"success": False, "message": "Failed."}
-
-
 @app.post("/api/users/verify-otp")
 async def verify_otp(data: VerifyOTPRequest):
     try:
-        phone = data.phone.strip()
+        email = data.email.strip().lower()
         otp = data.otp.strip()
-        saved_otp = otp_store.get(phone)
+        saved_otp = otp_store.get(email)
         if not saved_otp:
             return {"success": False, "message": "OTP not found."}
         if time.time() > saved_otp["expires_at"]:
-            del otp_store[phone]
+            del otp_store[email]
             return {"success": False, "message": "OTP expired."}
         if otp != saved_otp["otp"]:
             return {"success": False, "message": "Invalid OTP."}
-        user = await users_collection.find_one({"phone": phone})
+        user = await users_collection.find_one(
+            {"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}}
+        )
         if not user:
-            del otp_store[phone]
+            del otp_store[email]
             return {"success": False, "message": "User not found."}
-        del otp_store[phone]
+        del otp_store[email]
         return {
             "success": True,
             "user": {
                 "id": user.get("id") or str(user["_id"]),
                 "name": user["name"],
-                "phone": user["phone"],
+                "email": user.get("email", ""),
+                "phone": user.get("phone", ""),
                 "preferred_language": user.get("preferred_language", "English"),
                 "emergency_contacts": user.get("emergency_contacts", []),
             },
         }
     except Exception as exc:
         return {"success": False, "message": "Failed."}
-
 
 @app.post("/api/users/register", response_model=UserResponse)
 async def register_user(user: UserCreate):
