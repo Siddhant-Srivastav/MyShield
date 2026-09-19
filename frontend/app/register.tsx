@@ -9,6 +9,7 @@ import {
   View,
   Alert,
   useWindowDimensions,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -40,7 +41,87 @@ export default function Register() {
 
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
-  const [email, setEmail] = useState("");   // ⬅️ NAYA
+  const [email, setEmail] = useState("");
+  
+  // ✅ NAYA: Loading state + retry counter
+  const [loading, setLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // ✅ NAYA: Auto-retry register function
+  async function handleRegister(attempt: number = 1) {
+    if (!name.trim() || !mobile.trim()) {
+      Alert.alert("Missing Information", "Please enter your name and mobile number.");
+      return;
+    }
+
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      return;
+    }
+
+    setLoading(true);
+    setRetryCount(attempt);
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 sec timeout
+
+      const response = await fetch("https://myshield-api.onrender.com/api/users/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: mobile.trim(),
+          email: email.trim(),
+          preferred_language: "English",
+          emergency_contacts: [],
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 400) {
+          Alert.alert(
+            "Account Already Exists",
+            "This mobile number is already registered. Please login to continue.",
+            [{ text: "Login Now", onPress: () => router.replace("/login") }]
+          );
+        } else {
+          Alert.alert("Registration Failed", data.detail || "Registration failed. Please try again.");
+        }
+        setLoading(false);
+        return;
+      }
+
+      console.log("User registered:", data);
+      await AsyncStorage.setItem("user", JSON.stringify(data));
+
+      router.push({
+        pathname: "/photo-upload",
+        params: { userId: data.id },
+      });
+    } catch (error: any) {
+      console.log("Registration error:", error);
+      
+      // ✅ NAYA: Auto-retry logic (max 2 attempts)
+      if (attempt < 3 && (error.name === "AbortError" || error.message.includes("network"))) {
+        console.log(`Server waking up... Retry ${attempt + 1}/3 in 3 seconds`);
+        setLoading(false);
+        setTimeout(() => handleRegister(attempt + 1), 3000);
+        return;
+      }
+
+      Alert.alert(
+        "Connection Error",
+        "Unable to connect to MyShield server. Please check your internet connection and try again.",
+        [{ text: "OK" }]
+      );
+      setLoading(false);
+    }
+  }
 
   return (
     <View style={styles.root} testID="register-screen">
@@ -127,6 +208,7 @@ export default function Register() {
                 autoCapitalize="words"
                 returnKeyType="next"
                 testID="register-name-input"
+                editable={!loading}
               />
             </View>
           </View>
@@ -150,12 +232,12 @@ export default function Register() {
                   returnKeyType="next"
                   maxLength={10}
                   testID="register-mobile-input"
+                  editable={!loading}
                 />
               </View>
             </View>
           </View>
 
-          {/* ⬇️ NAYA: Email field */}
           <View style={styles.field}>
             <Text style={styles.label}>Email Address</Text>
             <View style={styles.input}>
@@ -171,6 +253,7 @@ export default function Register() {
                 autoCorrect={false}
                 returnKeyType="done"
                 testID="register-email-input"
+                editable={!loading}
               />
             </View>
           </View>
@@ -185,75 +268,38 @@ export default function Register() {
           </View>
 
           <Pressable
-            onPress={async () => {
-              if (!name.trim() || !mobile.trim()) {
-                alert("Please enter your name and mobile number");
-                return;
-              }
-
-              // Email format check (agar bhara hai to sahi format me hona chahiye)
-              if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-                alert("Please enter a valid email address");
-                return;
-              }
-
-              
-              try {
-                const response = await fetch("https://myshield-api.onrender.com/api/users/register", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    name: name.trim(),
-                    phone: mobile.trim(),
-                    email: email.trim(),   // ⬅️ NAYA
-                    preferred_language: "English",
-                    emergency_contacts: [],
-                  }),
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                  if (response.status === 400) {
-                    Alert.alert(
-                      "Account Already Exists",
-                      "This mobile number is already registered. Please login to continue.",
-                      [{ text: "Login Now", onPress: () => router.replace("/login") }]
-                    );
-                  } else {
-                    Alert.alert("Registration Failed", data.detail || "Registration failed");
-                  }
-                  return;
-                }
-
-                console.log("User registered:", data);
-                await AsyncStorage.setItem("user", JSON.stringify(data));
-
-                router.push({
-                  pathname: "/photo-upload",
-                  params: { userId: data.id },
-                });
-              } catch (error) {
-                console.log("Registration error:", error);
-                alert("Unable to connect to server");
-              }
-            }}
-            style={({ pressed }) => [styles.continueBtn, pressed && { opacity: 0.9 }]}
+            onPress={() => handleRegister(1)}
+            disabled={loading}
+            style={({ pressed }) => [
+              styles.continueBtn,
+              pressed && !loading && { opacity: 0.9 },
+              loading && { opacity: 0.6 },
+            ]}
             testID="register-continue-btn"
           >
             <View style={styles.btnLeft}>
               <View style={styles.btnIconBubble}>
-                <Image
-                  source={require("../assets/images/myshield-shield.png")}
-                  style={styles.btnBubbleImg}
-                  resizeMode="contain"
-                />
+                {loading ? (
+                  <ActivityIndicator size="small" color="#1A56DB" />
+                ) : (
+                  <Image
+                    source={require("../assets/images/myshield-shield.png")}
+                    style={styles.btnBubbleImg}
+                    resizeMode="contain"
+                  />
+                )}
               </View>
-              <Text style={styles.continueBtnText}>Continue</Text>
+              <Text style={styles.continueBtnText}>
+                {loading
+                  ? retryCount === 0
+                    ? "Creating Account..."
+                    : retryCount < 3
+                    ? `Retrying (${retryCount}/2)...`
+                    : "Creating Account..."
+                  : "Continue"}
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+            {!loading && <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />}
           </Pressable>
 
           <View style={styles.footer}>
@@ -261,9 +307,10 @@ export default function Register() {
             <Pressable
               onPress={() => router.replace("/login")}
               hitSlop={8}
+              disabled={loading}
               testID="register-login-link"
             >
-              <Text style={styles.footerLink}>Login Now</Text>
+              <Text style={[styles.footerLink, loading && { opacity: 0.5 }]}>Login Now</Text>
             </Pressable>
           </View>
         </View>
