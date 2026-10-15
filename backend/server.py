@@ -231,6 +231,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="MyShield API", version="1.2.0", lifespan=lifespan)
 otp_store = {}
+trigger_logs_collection = users_collection.database["trigger_logs"]
 
 
 print("=" * 60)
@@ -589,3 +590,37 @@ async def activate_medical_emergency(data: EmergencyActivationRequest, backgroun
 async def cancel_emergency(user_id: str):
     active_emergencies.discard(user_id)
     return {"success": True}
+
+# ============ PILOT TRIGGER LOGS (false-alert measurement) ============
+@app.post("/api/pilot/trigger-log")
+async def pilot_trigger_log(data: dict):
+    try:
+        entry = {
+            "timestamp": data.get("timestamp"),
+            "trigger_type": data.get("trigger_type"),
+            "status": data.get("status"),
+            "seconds_elapsed": data.get("seconds_elapsed"),
+            "received_at": time.time(),
+        }
+        await trigger_logs_collection.insert_one(entry)
+        return {"success": True}
+    except Exception as exc:
+        logger.error("Trigger log failed: %s", exc)
+        return {"success": False}
+
+
+@app.get("/api/pilot/trigger-logs")
+async def pilot_trigger_logs(limit: int = 200):
+    try:
+        docs = (
+            await trigger_logs_collection.find()
+            .sort("received_at", -1)
+            .limit(limit)
+            .to_list(length=limit)
+        )
+        for d in docs:
+            d["_id"] = str(d["_id"])
+        return {"success": True, "logs": docs}
+    except Exception as exc:
+        logger.error("Trigger logs fetch failed: %s", exc)
+        return {"success": False, "logs": []}
