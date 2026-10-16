@@ -70,12 +70,31 @@ export default function SettingsScreen() {
       {right ? <Text style={styles.rowRight}>{right}</Text> : null}
       <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
     </Pressable>
+    
   );
-
+  <Pressable
+  onPress={() => router.push("/protection")}
+  style={{
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#EEF1F5",
+    gap: 10,
+  }}
+>
+  <Ionicons name="shield-checkmark" size={22} color="#1A56DB" />
+  <Text style={{ flex: 1, fontSize: 14, fontWeight: "700", color: "#111827" }}>
+    Lock Screen Protection
+  </Text>
+  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+</Pressable>
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>
