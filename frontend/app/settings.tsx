@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  Alert,
   Image,
   Linking,
   Modal,
@@ -70,28 +71,8 @@ export default function SettingsScreen() {
       {right ? <Text style={styles.rowRight}>{right}</Text> : null}
       <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
     </Pressable>
-    
   );
-  <Pressable
-  onPress={() => router.push("/protection")}
-  style={{
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#EEF1F5",
-    gap: 10,
-  }}
->
-  <Ionicons name="shield-checkmark" size={22} color="#1A56DB" />
-  <Text style={{ flex: 1, fontSize: 14, fontWeight: "700", color: "#111827" }}>
-    Lock Screen Protection
-  </Text>
-  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-</Pressable>
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -105,6 +86,18 @@ export default function SettingsScreen() {
           />
           <Text style={styles.heading}>Settings</Text>
           <Text style={styles.subtitle}>Manage your preferences and privacy.</Text>
+        </View>
+
+        {/* ===== LOCK SCREEN SAFETY (NAYA prominent section) ===== */}
+        <Text style={styles.sectionTitle}>LOCK SCREEN SAFETY</Text>
+        <View style={styles.card}>
+          <Row
+            icon="shield"
+            color="#DC2626"
+            title="Lock Screen Protection"
+            subtitle="Trigger emergency alert directly from lock screen"
+            onPress={() => router.push("/protection")}
+          />
         </View>
 
         {/* PREFERENCES */}
@@ -126,7 +119,7 @@ export default function SettingsScreen() {
             icon="notifications" color="#B46BFF"
             title="Notification Settings" subtitle="Manage alert & notification preferences"
             onPress={() =>
-              AlertInfo(
+              Alert.alert(
                 "Notification Settings",
                 "Emergency notifications are always ON for your safety. You cannot disable them."
               )
@@ -141,7 +134,7 @@ export default function SettingsScreen() {
             icon="shield-checkmark" color="#1A56DB"
             title="Privacy Settings" subtitle="Control data, permissions & privacy"
             onPress={() =>
-              AlertInfo(
+              Alert.alert(
                 "Privacy Settings",
                 "Your data is encrypted and is only used during an emergency to alert your contacts."
               )
@@ -152,7 +145,7 @@ export default function SettingsScreen() {
             icon="document-text" color="#FF6B2C"
             title="Data & Access" subtitle="Manage your data and app access"
             onPress={() =>
-              AlertInfo(
+              Alert.alert(
                 "Data & Access",
                 "MyShield accesses your camera, photo and location only when needed for emergency assistance."
               )
@@ -274,11 +267,6 @@ export default function SettingsScreen() {
       <BottomNav active="settings" />
     </SafeAreaView>
   );
-}
-
-function AlertInfo(title: string, message: string) {
-  // simple alert helper (Alert import needed)
-  require("react-native").Alert.alert(title, message);
 }
 
 const styles = StyleSheet.create({
