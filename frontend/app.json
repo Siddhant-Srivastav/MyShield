@@ -52,7 +52,6 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "@notifee/react-native",
   "./plugins/withLockScreenAlert",
   "./plugins/withVolumeTrigger"
     ],
