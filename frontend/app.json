@@ -6,26 +6,36 @@
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
     "scheme": "frontend",
+    "scheme": "myshield",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Pick a photo for emergency identification."
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     },
     "android": {
       "package": "com.myshield.app",
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
-  "foregroundImage": "./assets/images/app-icon.png",
-  "backgroundColor": "#0A1628"
-},
-"updates": {
-  "url": "https://u.expo.dev/1a30f9dd-3813-4b46-9697-c0b17d23d7e5"
-},
-"runtimeVersion": "1.0.0",
+        "foregroundImage": "./assets/images/app-icon.png",
+        "backgroundColor": "#0A1628"
+      },
+      "updates": {
+        "url": "https://u.expo.dev/1a30f9dd-3813-4b46-9697-c0b17d23d7e5"
+      },
+      "runtimeVersion": "1.0.0",
       "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "FOREGROUND_SERVICE",
@@ -41,7 +51,10 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      "@notifee/react-native",
+  "./plugins/withLockScreenAlert",
+  "./plugins/withVolumeTrigger"
     ],
     "experiments": {
       "typedRoutes": true
@@ -51,6 +64,9 @@
       "eas": {
         "projectId": "1a30f9dd-3813-4b46-9697-c0b17d23d7e5"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/1a30f9dd-3813-4b46-9697-c0b17d23d7e5"
     }
   }
 }

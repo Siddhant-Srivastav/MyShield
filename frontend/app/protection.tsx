@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import notifee from "@notifee/react-native";
+import * as FileSystem from "expo-file-system/legacy";
 import {
   enableProtection,
   disableProtection,
@@ -22,16 +23,55 @@ import {
 import { getTriggerLogs } from "../utils/triggerLog";
 import type { TriggerLogEntry } from "../utils/triggerLog";
 
+const VOL_FILE = () => `${FileSystem.documentDirectory}volume_trigger_enabled`;
+const STATUS_FILE = () => `${FileSystem.documentDirectory}volume_trigger_status`;
+
+async function readVolEnabled(): Promise<boolean> {
+  try {
+    const info = await FileSystem.getInfoAsync(VOL_FILE());
+    if (!info.exists) return false;
+    return (await FileSystem.readAsStringAsync(VOL_FILE())).trim() === "1";
+  } catch {
+    return false;
+  }
+}
+
+async function readServiceStatus(): Promise<boolean> {
+  try {
+    const info = await FileSystem.getInfoAsync(STATUS_FILE());
+    if (!info.exists) return false;
+    return (await FileSystem.readAsStringAsync(STATUS_FILE())).trim() === "on";
+  } catch {
+    return false;
+  }
+}
+
+async function openAccessibilitySettings() {
+  try {
+    await Linking.sendIntent("android.settings.ACCESSIBILITY_SETTINGS");
+  } catch {
+    try {
+      await Linking.openURL(
+        "intent:#Intent;action=android.settings.ACCESSIBILITY_SETTINGS;end"
+      );
+    } catch {}
+  }
+}
+
 export default function ProtectionScreen() {
   const router = useRouter();
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [batteryRestricted, setBatteryRestricted] = useState(false);
   const [logs, setLogs] = useState<TriggerLogEntry[]>([]);
+  const [volumeOn, setVolumeOn] = useState(false);
+  const [accessibilityOn, setAccessibilityOn] = useState(false);
 
   const refresh = useCallback(async () => {
     setEnabled(await isProtectionEnabled());
     setLogs(await getTriggerLogs());
+    setVolumeOn(await readVolEnabled());
+    setAccessibilityOn(await readServiceStatus());
     try {
       setBatteryRestricted(await notifee.isBatteryOptimizationEnabled());
     } catch {}
@@ -89,6 +129,30 @@ export default function ProtectionScreen() {
     }
   }
 
+  async function handleVolumeToggle(value: boolean) {
+    try {
+      await FileSystem.writeAsStringAsync(VOL_FILE(), value ? "1" : "0");
+      setVolumeOn(value);
+      if (value) {
+        const on = await readServiceStatus();
+        setAccessibilityOn(on);
+        if (!on) {
+          Alert.alert(
+            "Accessibility enable karo",
+            "Volume trigger ke liye: Phone Settings → Accessibility → 'MyShield Volume Trigger' → ON karo.",
+            [
+              { text: "Baad me", style: "cancel" },
+              { text: "Settings kholo", onPress: openAccessibilitySettings },
+            ]
+          );
+        }
+      }
+    } catch (e) {
+      console.log("Volume toggle error:", e);
+    }
+    refresh();
+  }
+
   const recentLogs = logs.slice(-10).reverse();
 
   return (
@@ -134,6 +198,44 @@ export default function ProtectionScreen() {
           </View>
         </View>
 
+        {/* ===== VOLUME TRIGGER (NAYA) ===== */}
+        <View style={styles.card}>
+          <View style={styles.statusRow}>
+            <Ionicons name="volume-high" size={26} color="#1A56DB" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.statusTitle}>Volume Trigger (Beta)</Text>
+              <Text style={styles.statusSub}>
+                Volume button 3 baar tez dabao → alert shuru (lock par bhi)
+              </Text>
+            </View>
+            <Switch
+              value={volumeOn}
+              onValueChange={handleVolumeToggle}
+              trackColor={{ false: "#D1D5DB", true: "#93C5FD" }}
+              thumbColor={volumeOn ? "#1A56DB" : "#F9FAFB"}
+            />
+          </View>
+
+          {volumeOn && !accessibilityOn && (
+            <Pressable style={styles.warnCard} onPress={openAccessibilitySettings}>
+              <Ionicons name="accessibility" size={20} color="#B45309" />
+              <Text style={styles.warnText}>
+                Accessibility service OFF hai — tap karke settings kholo:
+                "MyShield Volume Trigger" ko ON karo
+              </Text>
+            </Pressable>
+          )}
+
+          {volumeOn && accessibilityOn && (
+            <View style={styles.okRow}>
+              <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+              <Text style={styles.okText}>
+                Service active — 3 fast volume presses = alert
+              </Text>
+            </View>
+          )}
+        </View>
+
         {/* How it works */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Kaise kaam karega?</Text>
@@ -147,6 +249,12 @@ export default function ProtectionScreen() {
             <Ionicons name="hand-left" size={16} color="#1A56DB" />
             <Text style={styles.bullet}>
               ALERT tap karo → shield ko 1.5 sec hold karo (galti se trigger nahi hoga)
+            </Text>
+          </View>
+          <View style={styles.bulletRow}>
+            <Ionicons name="volume-high" size={16} color="#1A56DB" />
+            <Text style={styles.bullet}>
+              Ya volume button 3 baar tez dabao — countdown shuru ho jayegi
             </Text>
           </View>
           <View style={styles.bulletRow}>
@@ -252,9 +360,16 @@ const styles = StyleSheet.create({
     borderColor: "#FDE68A",
     borderRadius: 14,
     padding: 12,
-    marginBottom: 12,
+    marginTop: 10,
   },
   warnText: { flex: 1, fontSize: 12, color: "#92400E", lineHeight: 17 },
+  okRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+  okText: { flex: 1, fontSize: 12, color: "#16A34A", fontWeight: "700" },
   guideRow: {
     flexDirection: "row",
     alignItems: "center",

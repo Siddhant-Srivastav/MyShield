@@ -1,6 +1,7 @@
 import notifee, { AndroidImportance, AndroidVisibility } from "@notifee/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";   // ⬅️ NAYA
 
 const PROTECTION_KEY = "protection_enabled";
 export const CHANNEL_ID = "myshield-protection";
@@ -32,8 +33,8 @@ export async function enableProtection(): Promise<boolean> {
     description: "Lock screen emergency trigger",
     importance: AndroidImportance.HIGH,
     vibration: true,
-    sound: undefined, // 🔇 silent alert
-    visibility: AndroidVisibility.PUBLIC, // lock screen par full content
+    sound: undefined,
+    visibility: AndroidVisibility.PUBLIC,
   });
 
   await notifee.displayNotification({
@@ -43,17 +44,17 @@ export async function enableProtection(): Promise<boolean> {
     data: { type: "protection-alert" },
     android: {
       channelId: CHANNEL_ID,
-      ongoing: true, // user swipe se nahi hat sakti
+      ongoing: true,
       autoCancel: false,
       visibility: AndroidVisibility.PUBLIC,
-      asForegroundService: true, // background me zinda rahe
+      asForegroundService: true,
       color: "#DC2626",
       actions: [
         {
           title: "🚨 ALERT",
           pressAction: {
             id: "alert",
-            launchActivity: "default", // app kholo (lock ke upar)
+            launchActivity: "default",
           },
         },
       ],
@@ -61,6 +62,15 @@ export async function enableProtection(): Promise<boolean> {
   });
 
   await AsyncStorage.setItem(PROTECTION_KEY, "1");
+
+  // ⬇️ NAYA: native boot receiver ke liye flag file
+  try {
+    await FileSystem.writeAsStringAsync(
+      `${FileSystem.documentDirectory}protection_enabled_native`,
+      "1"
+    );
+  } catch {}
+
   return true;
 }
 
@@ -68,4 +78,12 @@ export async function enableProtection(): Promise<boolean> {
 export async function disableProtection(): Promise<void> {
   await notifee.cancelNotification(NOTIF_ID);
   await AsyncStorage.setItem(PROTECTION_KEY, "0");
+
+  // ⬇️ NAYA: native boot receiver ko batao ki protection OFF hai
+  try {
+    await FileSystem.writeAsStringAsync(
+      `${FileSystem.documentDirectory}protection_enabled_native`,
+      "0"
+    );
+  } catch {}
 }

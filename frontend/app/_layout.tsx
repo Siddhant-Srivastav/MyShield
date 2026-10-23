@@ -2,6 +2,7 @@ import { Stack, router } from "expo-router";
 import notifee, { EventType } from "@notifee/react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { AppState } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -48,6 +49,22 @@ export default function RootLayout() {
     });
 
     return () => unsub();
+  }, []);
+
+  // ===== NAYA: Har baar app foreground aaye → protection notification auto-resume =====
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        (async () => {
+          try {
+            if (await isProtectionEnabled()) {
+              await enableProtection();
+            }
+          } catch {}
+        })();
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   // If the CDN is unreachable we fall through on error rather than wedging

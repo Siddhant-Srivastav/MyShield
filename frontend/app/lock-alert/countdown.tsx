@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { logTrigger } from "../../utils/triggerLog";
+import { useLocalSearchParams } from "expo-router";
 
 const COUNTDOWN_SECONDS = 10;
 const API_URL = "https://myshield-api.onrender.com";
@@ -21,6 +22,8 @@ type Status = "counting" | "sending" | "sent" | "cancelled";
 
 export default function CountdownScreen() {
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
+  const params = useLocalSearchParams<{ trigger?: string }>();
+  const triggerType = params.trigger === "volume" ? "volume" : "lock_hold";
   const [status, setStatus] = useState<Status>("counting");
   const secondsRef = useRef(COUNTDOWN_SECONDS);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -84,7 +87,7 @@ export default function CountdownScreen() {
 
     await logTrigger({
       timestamp: new Date().toISOString(),
-      trigger_type: "lock_hold",
+      trigger_type: triggerType,
       status: "sent",
       seconds_elapsed: elapsed,
     });
@@ -102,7 +105,7 @@ export default function CountdownScreen() {
     const elapsed = COUNTDOWN_SECONDS - secondsRef.current;
     await logTrigger({
       timestamp: new Date().toISOString(),
-      trigger_type: "lock_hold",
+      trigger_type: triggerType,
       status: "cancelled",
       seconds_elapsed: elapsed,
     });
