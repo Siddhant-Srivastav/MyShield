@@ -1,10 +1,10 @@
 import { Stack, router } from "expo-router";
 import notifee, { EventType } from "@notifee/react-native";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
-import { AppState } from "react-native";
+import { useEffect, useState } from "react";
+import { AppState, StatusBar, StyleSheet, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { isProtectionEnabled, enableProtection } from "../utils/protectionService";
@@ -12,12 +12,18 @@ import { isProtectionEnabled, enableProtection } from "../utils/protectionServic
 // Keep the native splash visible from cold start until icon fonts register.
 SplashScreen.preventAutoHideAsync();
 
+// Global status bar style (ek baar set, har screen par apply)
+StatusBar.setBarStyle("dark-content");
+StatusBar.setBackgroundColor("#F4F7FA");
+
 export default function RootLayout() {
   const [loaded, error] = useIconFonts();
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     if (loaded || error) {
       SplashScreen.hideAsync();
+      setIsReady(true);
     }
   }, [loaded, error]);
 
@@ -25,13 +31,11 @@ export default function RootLayout() {
   useEffect(() => {
     const boot = async () => {
       try {
-        // App killed thi aur notification ALERT se khuli
         const initial = await notifee.getInitialNotification();
         if (initial?.pressAction?.id === "alert") {
           router.replace("/lock-alert/hold");
           return;
         }
-        // Protection ON thi par notification mari hui (reboot/OEM kill) → wapas lao
         if (await isProtectionEnabled()) {
           await enableProtection();
         }
@@ -51,36 +55,53 @@ export default function RootLayout() {
     return () => unsub();
   }, []);
 
-  // ===== NAYA: Har baar app foreground aaye → protection notification auto-resume =====
-    // ===== NAYA: Har baar app foreground aaye → protection notification auto-resume =====
+  // ===== AppState listener (optimized — baar-baar call nahi hoga) =====
   useEffect(() => {
     let isAppActive = false;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active" && !isAppActive) {
         isAppActive = true;
-        (async () => {
+        // 500ms debounce — flicker rokne ke liye
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
           try {
             if (await isProtectionEnabled()) {
               await enableProtection();
             }
           } catch {}
-        })();
+        }, 500);
       } else if (state !== "active") {
         isAppActive = false;
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+          debounceTimer = null;
+        }
       }
     });
-    return () => sub.remove();
+
+    return () => {
+      sub.remove();
+      if (debounceTimer) clearTimeout(debounceTimer);
+    };
   }, []);
 
-  // If the CDN is unreachable we fall through on error rather than wedging
-  // the app — icons will tofu, but the app still boots.
   if (!loaded && !error) return null;
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <KeyboardProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <View style={styles.root}>
+          <Stack screenOptions={{ headerShown: false }} />
+        </View>
       </KeyboardProvider>
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: "#F4F7FA",
+  },
+});
