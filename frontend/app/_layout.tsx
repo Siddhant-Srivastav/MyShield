@@ -52,9 +52,12 @@ export default function RootLayout() {
   }, []);
 
   // ===== NAYA: Har baar app foreground aaye → protection notification auto-resume =====
+    // ===== NAYA: Har baar app foreground aaye → protection notification auto-resume =====
   useEffect(() => {
+    let isAppActive = false;
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") {
+      if (state === "active" && !isAppActive) {
+        isAppActive = true;
         (async () => {
           try {
             if (await isProtectionEnabled()) {
@@ -62,6 +65,8 @@ export default function RootLayout() {
             }
           } catch {}
         })();
+      } else if (state !== "active") {
+        isAppActive = false;
       }
     });
     return () => sub.remove();

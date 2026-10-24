@@ -81,7 +81,7 @@ export default function HoldScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       {/* Top: Logo + Title */}
       <View style={styles.top}>

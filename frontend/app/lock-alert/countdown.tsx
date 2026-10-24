@@ -134,7 +134,7 @@ export default function CountdownScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#7F1D1D" />
+     <StatusBar barStyle="light-content" />
 
       {status === "counting" && (
         <>
