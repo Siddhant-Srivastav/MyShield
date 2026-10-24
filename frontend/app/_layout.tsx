@@ -3,27 +3,30 @@ import notifee, { EventType } from "@notifee/react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { AppState, StatusBar, StyleSheet, View } from "react-native";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { isProtectionEnabled, enableProtection } from "../utils/protectionService";
 
-// Keep the native splash visible from cold start until icon fonts register.
+// Prevent auto hide
 SplashScreen.preventAutoHideAsync();
 
-// Global status bar style (ek baar set, har screen par apply)
+// Global Status Bar
 StatusBar.setBarStyle("dark-content");
 StatusBar.setBackgroundColor("#F4F7FA");
+StatusBar.setTranslucent(false);
 
 export default function RootLayout() {
   const [loaded, error] = useIconFonts();
-  const [isReady, setIsReady] = useState(false);
+  const [isAppReady, setIsAppReady] = useState(false);
 
   useEffect(() => {
     if (loaded || error) {
-      SplashScreen.hideAsync();
-      setIsReady(true);
+      // UI paint hone ka wait karo, phir splash hatao (Flash rokne ke liye)
+      setTimeout(() => {
+        SplashScreen.hideAsync();
+        setIsAppReady(true);
+      }, 100);
     }
   }, [loaded, error]);
 
@@ -43,7 +46,6 @@ export default function RootLayout() {
         console.log("Notifee boot error:", e);
       }
     };
-
     boot();
 
     const unsub = notifee.onForegroundEvent(({ type, detail }) => {
@@ -51,18 +53,17 @@ export default function RootLayout() {
         router.replace("/lock-alert/hold");
       }
     });
-
     return () => unsub();
   }, []);
 
-  // ===== AppState listener (optimized — baar-baar call nahi hoga) =====
+  // ===== AppState listener (Optimized) =====
   useEffect(() => {
     let isAppActive = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active" && !isAppActive) {
         isAppActive = true;
-        // 500ms debounce — flicker rokne ke liye
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(async () => {
           try {
@@ -79,29 +80,28 @@ export default function RootLayout() {
         }
       }
     });
-
     return () => {
       sub.remove();
       if (debounceTimer) clearTimeout(debounceTimer);
     };
   }, []);
 
-  if (!loaded && !error) return null;
+  // ❌ CRITICAL FIX: Kabhi bhi 'null' return mat karo! Solid background return karo.
+  if (!loaded && !error) {
+    return <View style={{ flex: 1, backgroundColor: '#F4F7FA' }} />;
+  }
 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <KeyboardProvider>
-        <View style={styles.root}>
-          <Stack screenOptions={{ headerShown: false }} />
-        </View>
-      </KeyboardProvider>
+      <View style={{ flex: 1, backgroundColor: '#F4F7FA' }}>
+        <Stack 
+          screenOptions={{ 
+            headerShown: false, 
+            animation: 'none',
+            contentStyle: { backgroundColor: '#F4F7FA' } // Route change flash rokne ke liye
+          }} 
+        />
+      </View>
     </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#F4F7FA",
-  },
-});
