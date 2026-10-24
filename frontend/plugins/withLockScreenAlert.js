@@ -20,21 +20,22 @@ function ensurePermission(manifest, name) {
 module.exports = function withLockScreenAlert(config) {
   return withAndroidManifest(config, (cfg) => {
     const manifest = cfg.modResults;
-
     PERMISSIONS.forEach((p) => ensurePermission(manifest, p));
 
-    const app = manifest.manifest.application[0];
-    const mainActivity =
-      app.activity.find(
-        (a) =>
-          a.$["android:name"] === ".MainActivity" ||
-          a.$["android:name"] === "MainActivity"
-      ) || app.activity[0];
+    const app = manifest.manifest.application?.[0];
+    if (!app) return cfg; // Safety check
 
-    mainActivity.$["android:showWhenLocked"] = "true";
-    mainActivity.$["android:turnScreenOn"] = "true";
+    const activities = app.activity || [];
+    const mainActivity = activities.find(
+      (a) => a.$["android:name"] === ".MainActivity" || a.$["android:name"] === "MainActivity"
+    ) || activities[0];
 
-    console.log("✅ withLockScreenAlert: manifest updated");
+    if (mainActivity && mainActivity.$) {
+      mainActivity.$["android:showWhenLocked"] = "true";
+      mainActivity.$["android:turnScreenOn"] = "true";
+    }
+
+    console.log("✅ withLockScreenAlert: manifest updated safely");
     return cfg;
   });
 };
