@@ -37,7 +37,7 @@ class VolumeTriggerService : AccessibilityService() {
                 lastTrigger = now
                 try {
                     val v = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                    v.vibrate(longArrayOf(0, 90, 40, 90)) // feedback buzz
+                    v.vibrate(longArrayOf(0, 90, 40, 90),-1) // feedback buzz
                 } catch (e: Exception) {}
                 try {
                     val i = Intent(
