@@ -86,7 +86,7 @@ export default function HoldScreen() {
       {/* Top: Logo + Title */}
       <View style={styles.top}>
         <Image
-          source={require("../assets/images/myshield-shield.png")}
+          source={require("../../assets/images/myshield-shield.png")}
           style={styles.logo}
           resizeMode="contain"
         />
