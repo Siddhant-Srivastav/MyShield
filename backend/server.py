@@ -127,15 +127,15 @@ logger = logging.getLogger("myshield")
 
 active_emergencies = set()
 
-# ============ SENDGRID HTTPS EMAIL SHIM v2 (Render-safe) ============
+# ============ BREVO HTTPS EMAIL SHIM (Render-safe) ============
 import os as _os
 import json as _json
 import urllib.request as _urlreq
 import email as _emailmod
 import smtplib as _smtplib
 
-_SENDGRID_KEY = _os.getenv("SENDGRID_API_KEY", "").strip()
-print("🔑 KEY FINGERPRINT:", repr(_SENDGRID_KEY[:8]), "LENGTH:", len(_SENDGRID_KEY))
+_BREVO_KEY = _os.getenv("BREVO_API_KEY", "").strip()
+print("🔑 BREVO KEY FINGERPRINT:", repr(_BREVO_KEY[:8]), "LENGTH:", len(_BREVO_KEY))
 _FROM_EMAIL = _os.getenv("GMAIL_ADDRESS", "myshield360@gmail.com").strip()
 
 def _decode_part(part):
@@ -148,7 +148,7 @@ def _decode_part(part):
     except Exception:
         return ""
 
-class _SendGridSMTP:
+class _BrevoSMTP:
     def __init__(self, host="", port=0, *a, **k): pass
     def __enter__(self): return self
     def __exit__(self, *a): return False
@@ -160,8 +160,8 @@ class _SendGridSMTP:
     def close(self): pass
 
     def sendmail(self, from_addr, to_addrs, msg, *a, **k):
-        if not _SENDGRID_KEY:
-            raise _smtplib.SMTPException("SENDGRID_API_KEY not set")
+        if not _BREVO_KEY:
+            raise _smtplib.SMTPException("BREVO_API_KEY not set")
         if not isinstance(msg, str):
             msg = msg.as_string()
         if isinstance(to_addrs, str):
@@ -187,33 +187,40 @@ class _SendGridSMTP:
             body = msg
         html = body if "<html" in body.lower() else body.replace("\n", "<br>")
         data = _json.dumps({
-            "personalizations": [{"to": [{"email": e} for e in to_addrs]}],
-            "from": {"email": _FROM_EMAIL, "name": "MyShield Safety"},
+            "sender": {"name": "MyShield Safety", "email": _FROM_EMAIL},
+            "to": [{"email": e} for e in to_addrs],
             "subject": subject or "MyShield Alert",
-            "content": [{"type": "text/html", "value": html}],
+            "htmlContent": html,
         }).encode()
         req = _urlreq.Request(
-            "https://api.sendgrid.com/v3/mail/send",
+            "https://api.brevo.com/v3/smtp/email",
             data=data,
-            headers={"Authorization": "Bearer " + _SENDGRID_KEY,
-                     "Content-Type": "application/json"},
+            headers={"api-key": _BREVO_KEY,
+                     "Content-Type": "application/json",
+                     "Accept": "application/json"},
             method="POST",
         )
         try:
             with _urlreq.urlopen(req, timeout=30) as res:
-                print("✅ EMAIL SENT via SendGrid to", to_addrs, res.status)
+                print("✅ EMAIL SENT via Brevo to", to_addrs, res.status)
         except Exception as e:
-            print("❌ SENDGRID ERROR:", e)
+            err_body = ""
+            try:
+                err_body = e.read().decode()
+            except Exception:
+                pass
+            print("❌ BREVO ERROR:", e, "| BODY:", err_body)
             raise _smtplib.SMTPException(str(e))
 
     def send_message(self, msg, *a, **k):
         return self.sendmail(msg.get("From", ""), msg.get_all("To") or [], msg)
 
-if _SENDGRID_KEY:
-    _smtplib.SMTP = _SendGridSMTP
-    _smtplib.SMTP_SSL = _SendGridSMTP
-    print("📧 SendGrid shim v2 ACTIVE")
+if _BREVO_KEY:
+    _smtplib.SMTP = _BrevoSMTP
+    _smtplib.SMTP_SSL = _BrevoSMTP
+    print("📧 Brevo shim ACTIVE")
 # ====================================================================
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting MyShield API...")
@@ -266,33 +273,32 @@ def _send_email_sync(to_emails, subject: str, html: str):
     # Plain text version (zaroori hai)
     msg.attach(MIMEText(html, "html", "utf-8"))
     
-    print(f"📡 Gmail SMTP attempt...")
+    print(f"📡 Brevo HTTPS attempt...")
     
     try:
-        # ✅ PORT 587 + STARTTLS (Gmail recommended)
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+        # ✅ Brevo shim ko use karo
+        with smtplib.SMTP("brevo.com", 587, timeout=30) as server:
             server.ehlo()
-            server.starttls()  # ⬅️ TLS encryption
+            server.starttls()
             server.ehlo()
             
-            print(f"🔐 Logging in as {GMAIL_ADDRESS}...")
+            print(f"🔐 Logging in (shim will intercept)...")
             server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
-            print(f"✅ Gmail login successful!")
+            print(f"✅ Brevo login successful!")
             
             print(f"📤 Sending to {to_emails}...")
             result = server.sendmail(GMAIL_ADDRESS, to_emails, msg.as_string())
             
             if result == {}:
-                print(f"✅ Gmail accepted for: {to_emails}")
+                print(f"✅ Brevo accepted for: {to_emails}")
                 print(f"⏱️ Check inbox/spam in 1-2 minutes")
                 return {"sent": to_emails, "status": "success"}
             else:
-                print(f"❌ Gmail rejected: {result}")
+                print(f"❌ Brevo rejected: {result}")
                 raise Exception(f"Rejected: {result}")
                 
     except smtplib.SMTPAuthenticationError as e:
         print(f"❌ AUTH FAILED: {e}")
-        print(f"💡 App password galat hai — naya banao: https://myaccount.google.com/apppasswords")
         raise
     except Exception as e:
         print(f"❌ ERROR: {e}")
@@ -386,6 +392,7 @@ async def send_otp(data: SendOTPRequest):
     except Exception as exc:
         logger.error("Send OTP failed: %s", exc)
         return {"success": False, "message": "Failed."}
+
 @app.post("/api/users/verify-otp")
 async def verify_otp(data: VerifyOTPRequest):
     try:
@@ -526,7 +533,7 @@ async def trigger_emergency(data: EmergencyActivationRequest, emergency_type: st
     photo_url = get_presigned_photo_url(user["id"]) or user.get("photo_url", "")
     contacts = user.get("emergency_contacts", [])
     maps_url = f"https://www.google.com/maps/search/?api=1&query={data.latitude},{data.longitude}"
-        # ⬇️ PHOTO HTML (S3 URL se load hogi)
+    # ⬇️ PHOTO HTML (S3 URL se load hogi)
     if photo_url:
         photo_html = f"""
         <div style="text-align:center;margin:0 0 16px 0;">
