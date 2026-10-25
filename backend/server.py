@@ -135,6 +135,7 @@ import email as _emailmod
 import smtplib as _smtplib
 
 _SENDGRID_KEY = _os.getenv("SENDGRID_API_KEY", "").strip()
+print("🔑 KEY FINGERPRINT:", repr(_SENDGRID_KEY[:8]), "LENGTH:", len(_SENDGRID_KEY))
 _FROM_EMAIL = _os.getenv("GMAIL_ADDRESS", "myshield360@gmail.com").strip()
 
 def _decode_part(part):
