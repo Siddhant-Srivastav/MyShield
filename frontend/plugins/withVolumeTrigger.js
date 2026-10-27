@@ -5,66 +5,119 @@ const path = require("path");
 const SERVICE_KOTLIN = (pkg) => `package ${pkg}
 
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
+import android.os.VibrationEffect
 import android.os.Vibrator
 import android.view.KeyEvent
 import java.io.File
 
 class VolumeTriggerService : AccessibilityService() {
-    private val presses = mutableListOf<Long>()
     private var lastTrigger = 0L
+    private var isEnabled = false
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var lastScreenChange = 0L
+    private var lastVolumePress = 0L
+    private val COMBO_WINDOW = 450L // Volume + Power isi window me ek saath dabne chahiye
 
-    override fun onKeyEvent(event: KeyEvent?): Boolean {
-        if (event == null || event.action != KeyEvent.ACTION_DOWN) return false
-        if (event.repeatCount > 0) return false // long-press repeats = ignore
-        val code = event.keyCode
-        if (code != KeyEvent.KEYCODE_VOLUME_DOWN && code != KeyEvent.KEYCODE_VOLUME_UP) return false
-
-        val enabled = try {
-            File(filesDir, "volume_trigger_enabled").readText().trim() == "1"
-        } catch (e: Exception) { false }
-        if (!enabled) return false
-
-        val now = System.currentTimeMillis()
-        presses.add(now)
-        presses.removeAll { now - it > 3000 } // 3 sec window
-
-        if (presses.size >= 3) {
-            presses.clear()
-            if (now - lastTrigger > 20000) { // 20 sec cooldown
-                lastTrigger = now
-                try {
-                    val v = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                    v.vibrate(longArrayOf(0, 90, 40, 90),-1) // feedback buzz
-                } catch (e: Exception) {}
-                try {
-                    val i = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("myshield://lock-alert/countdown?trigger=volume")
-                    )
-                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    startActivity(i)
-                } catch (e: Exception) { e.printStackTrace() }
+    // Power button ka EFFECT (screen ON/OFF) pakadta hai
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            lastScreenChange = System.currentTimeMillis()
+            // Volume PEHLE dab chuka tha, ab Power daba → COMBO
+            if (lastScreenChange - lastVolumePress <= COMBO_WINDOW) {
+                tryTrigger()
             }
-            return true
         }
-        return false
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        updateEnabledState()
+
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyShield::VolumeWakeLock").apply {
+            setReferenceCounted(false)
+        }
+
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(screenReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(screenReceiver, filter)
+        }
         try { File(filesDir, "volume_trigger_status").writeText("on") } catch (e: Exception) {}
     }
 
+    private fun updateEnabledState() {
+        isEnabled = try {
+            File(filesDir, "volume_trigger_enabled").readText().trim() == "1"
+        } catch (e: Exception) { false }
+    }
+
+    override fun onKeyEvent(event: KeyEvent?): Boolean {
+        if (event == null || event.action != KeyEvent.ACTION_DOWN) return false
+        if (event.repeatCount > 0) return false
+        val code = event.keyCode
+                if (code != KeyEvent.KEYCODE_VOLUME_UP) return false
+
+        if (!isEnabled) {
+            updateEnabledState()
+            if (!isEnabled) return false
+        }
+
+        wakeLock?.acquire(3000)
+        lastVolumePress = System.currentTimeMillis()
+
+        // Power PEHLE dab chuka tha (screen ON/OFF hua), ab Volume daba → COMBO
+        if (lastVolumePress - lastScreenChange <= COMBO_WINDOW) {
+            tryTrigger()
+        }
+        return false // Volume ka normal kaam (awaz badhna/kamna) chalta rahe
+    }
+
+    private fun tryTrigger() {
+        val now = System.currentTimeMillis()
+        if (now - lastTrigger < 20000) return // 20 sec cooldown
+        lastTrigger = now
+
+        // Strong vibration feedback
+        try {
+            val v = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                v.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                v.vibrate(300)
+            }
+        } catch (e: Exception) {}
+
+        // Countdown screen kholo
+        try {
+            val i = Intent(Intent.ACTION_VIEW, Uri.parse("myshield://lock-alert/countdown?trigger=volume"))
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+            startActivity(i)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
     override fun onUnbind(intent: Intent?): Boolean {
+        try { unregisterReceiver(screenReceiver) } catch (e: Exception) {}
         try { File(filesDir, "volume_trigger_status").writeText("off") } catch (e: Exception) {}
+        wakeLock?.release()
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
+        try { unregisterReceiver(screenReceiver) } catch (e: Exception) {}
         try { File(filesDir, "volume_trigger_status").writeText("off") } catch (e: Exception) {}
+        wakeLock?.release()
         super.onDestroy()
     }
 
@@ -133,15 +186,16 @@ module.exports = function withVolumeTrigger(config) {
     const manifest = cfg.modResults;
     const root = manifest.manifest;
 
-    // Boot permission
     root["uses-permission"] = root["uses-permission"] || [];
     if (!root["uses-permission"].find((p) => p.$["android:name"] === "android.permission.RECEIVE_BOOT_COMPLETED")) {
       root["uses-permission"].push({ $: { "android:name": "android.permission.RECEIVE_BOOT_COMPLETED" } });
     }
+    if (!root["uses-permission"].find((p) => p.$["android:name"] === "android.permission.WAKE_LOCK")) {
+      root["uses-permission"].push({ $: { "android:name": "android.permission.WAKE_LOCK" } });
+    }
 
     const app = root.application[0];
 
-    // Accessibility service
     app.service = app.service || [];
     if (!app.service.find((s) => s.$["android:name"] === ".VolumeTriggerService")) {
       app.service.push({
@@ -160,7 +214,6 @@ module.exports = function withVolumeTrigger(config) {
       });
     }
 
-    // Boot receiver
     app.receiver = app.receiver || [];
     if (!app.receiver.find((r) => r.$["android:name"] === ".MyShieldBootReceiver")) {
       app.receiver.push({
@@ -202,12 +255,12 @@ module.exports = function withVolumeTrigger(config) {
       if (!strings.includes("volume_trigger_desc")) {
         strings = strings.replace(
           "</resources>",
-          `    <string name="volume_trigger_desc">MyShield ko volume button se emergency trigger karne deta hai. Sirf safety ke liye.</string>\n</resources>`
+          `    <string name="volume_trigger_desc">MyShield: Volume UP + Power button ek saath dabakar emergency alert bhejo.</string>\n</resources>`
         );
         fs.writeFileSync(stringsPath, strings, "utf8");
       }
 
-      console.log("✅ withVolumeTrigger v2: service + boot receiver injected");
+      console.log("✅ withVolumeTrigger v5: Volume+Power combo injected");
       return cfg;
     },
   ]);
