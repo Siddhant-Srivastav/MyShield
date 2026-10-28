@@ -1,8 +1,0 @@
-<resources>
-  <string name="app_name">MyShield</string>
-  <string name="volume_trigger_desc">MyShield ko volume button se emergency trigger karne deta hai. Sirf safety ke liye.</string>
-  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
-  <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
-  <string name="expo_system_ui_user_interface_style" translatable="false">automatic</string>
-  <string name="expo_runtime_version">1.0.0</string>
-</resources>
