@@ -5,36 +5,24 @@ const path = require("path");
 const SERVICE_KOTLIN = (pkg) => `package ${pkg}
 
 import android.accessibilityservice.AccessibilityService
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.view.KeyEvent
+import android.view.accessibility.AccessibilityEvent
 import java.io.File
 
 class VolumeTriggerService : AccessibilityService() {
     private var lastTrigger = 0L
     private var isEnabled = false
     private var wakeLock: PowerManager.WakeLock? = null
-    private var lastScreenChange = 0L
-    private var lastVolumePress = 0L
-    private val COMBO_WINDOW = 450L // Volume + Power isi window me ek saath dabne chahiye
-
-    // Power button ka EFFECT (screen ON/OFF) pakadta hai
-    private val screenReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            lastScreenChange = System.currentTimeMillis()
-            // Volume PEHLE dab chuka tha, ab Power daba → COMBO
-            if (lastScreenChange - lastVolumePress <= COMBO_WINDOW) {
-                tryTrigger()
-            }
-        }
-    }
+    private var lastVolUp = 0L
+    private var lastVolDown = 0L
+    private val COMBO_WINDOW = 300L // Dono buttons isi window me ek saath dabne chahiye
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -43,16 +31,6 @@ class VolumeTriggerService : AccessibilityService() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyShield::VolumeWakeLock").apply {
             setReferenceCounted(false)
-        }
-
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_OFF)
-            addAction(Intent.ACTION_SCREEN_ON)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(screenReceiver, filter, RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(screenReceiver, filter)
         }
         try { File(filesDir, "volume_trigger_status").writeText("on") } catch (e: Exception) {}
     }
@@ -67,21 +45,25 @@ class VolumeTriggerService : AccessibilityService() {
         if (event == null || event.action != KeyEvent.ACTION_DOWN) return false
         if (event.repeatCount > 0) return false
         val code = event.keyCode
-                if (code != KeyEvent.KEYCODE_VOLUME_UP) return false
+        if (code != KeyEvent.KEYCODE_VOLUME_UP && code != KeyEvent.KEYCODE_VOLUME_DOWN) return false
 
         if (!isEnabled) {
             updateEnabledState()
             if (!isEnabled) return false
         }
 
+        val now = System.currentTimeMillis()
         wakeLock?.acquire(3000)
-        lastVolumePress = System.currentTimeMillis()
 
-        // Power PEHLE dab chuka tha (screen ON/OFF hua), ab Volume daba → COMBO
-        if (lastVolumePress - lastScreenChange <= COMBO_WINDOW) {
-            tryTrigger()
+        // COMBO: Volume UP + Volume DOWN ek saath (300ms ke andar)
+        if (code == KeyEvent.KEYCODE_VOLUME_UP) {
+            lastVolUp = now
+            if (now - lastVolDown <= COMBO_WINDOW) tryTrigger()
+        } else {
+            lastVolDown = now
+            if (now - lastVolUp <= COMBO_WINDOW) tryTrigger()
         }
-        return false // Volume ka normal kaam (awaz badhna/kamna) chalta rahe
+        return false // Volume ka normal kaam chalta rahe
     }
 
     private fun tryTrigger() {
@@ -108,20 +90,18 @@ class VolumeTriggerService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
-        try { unregisterReceiver(screenReceiver) } catch (e: Exception) {}
         try { File(filesDir, "volume_trigger_status").writeText("off") } catch (e: Exception) {}
         wakeLock?.release()
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
-        try { unregisterReceiver(screenReceiver) } catch (e: Exception) {}
         try { File(filesDir, "volume_trigger_status").writeText("off") } catch (e: Exception) {}
         wakeLock?.release()
         super.onDestroy()
     }
 
-    override fun onAccessibilityEvent(event: android.view.accessibility.AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
     override fun onInterrupt() {}
 }
 `;
@@ -255,12 +235,12 @@ module.exports = function withVolumeTrigger(config) {
       if (!strings.includes("volume_trigger_desc")) {
         strings = strings.replace(
           "</resources>",
-          `    <string name="volume_trigger_desc">MyShield: Volume UP + Power button ek saath dabakar emergency alert bhejo.</string>\n</resources>`
+          `    <string name="volume_trigger_desc">MyShield: Volume UP + Volume DOWN dono ek saath dabakar emergency alert bhejo.</string>\n</resources>`
         );
         fs.writeFileSync(stringsPath, strings, "utf8");
       }
 
-      console.log("✅ withVolumeTrigger v5: Volume+Power combo injected");
+      console.log("✅ withVolumeTrigger v7 FINAL: VolUP+VolDOWN combo");
       return cfg;
     },
   ]);
