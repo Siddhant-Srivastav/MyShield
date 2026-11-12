@@ -21,10 +21,12 @@ export default function AutoModeSetupCard() {
       <Text style={[styles.line, { marginTop: 10 }]}>👉 Step 2: Usage Access allow karo</Text>
       <TouchableOpacity
         style={styles.btn}
-        onPress={() => {
+                onPress={async () => {
           try {
-            Linking.openURL("android.settings.USAGE_ACCESS_SETTINGS");
-          } catch (e) {}
+            await Linking.sendIntent("android.settings.USAGE_ACCESS_SETTINGS");
+          } catch (e) {
+            try { await Linking.openSettings(); } catch (e2) {}
+          }
         }}
       >
         <Text style={styles.btnText}>Usage Access kholo</Text>
