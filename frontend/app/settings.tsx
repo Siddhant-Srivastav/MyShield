@@ -101,7 +101,6 @@ export default function SettingsScreen() {
           />
         </View>
         <AutoModeSetupCard />
-
         {/* PREFERENCES */}
         <Text style={styles.sectionTitle}>PREFERENCES</Text>
         <View style={styles.card}>
