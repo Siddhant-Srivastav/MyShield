@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AutoModeSetupCard from "../components/AutoModeSetupCard";
+import AutoModeSetupCard from "../src/components/hero/AutoModeSetupCard";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
@@ -100,6 +100,7 @@ export default function SettingsScreen() {
             onPress={() => router.push("/protection")}
           />
         </View>
+        <AutoModeSetupCard />
 
         {/* PREFERENCES */}
         <Text style={styles.sectionTitle}>PREFERENCES</Text>
