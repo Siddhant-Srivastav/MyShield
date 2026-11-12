@@ -25,6 +25,7 @@ export async function isProtectionEnabled(): Promise<boolean> {
 // ---------- ENABLE: persistent lock-screen notification ----------
 export async function enableProtection(): Promise<boolean> {
   if (Platform.OS !== "android") return false;
+    await seedFinanceApps();
 
   const ok = await requestNotificationPermission();
   if (!ok) return false;
@@ -176,4 +177,24 @@ export async function openUsageAccessSettings(): Promise<void> {
       await Linking.openSettings();
     } catch {}
   }
+}
+// ---------- Real finance apps seed (SuperMoney/Bajaj/Navi) ----------
+export async function seedFinanceApps(): Promise<void> {
+  try {
+    const pkgs = ["money.super.payments", "org.altruist.BajajExperia", "com.naviapp"];
+    const f = `${FileSystem.documentDirectory}finance_apps_extra`;
+    let cur = "";
+    try {
+      cur = await FileSystem.readAsStringAsync(f);
+    } catch {}
+    const list = cur.split(",").map((s) => s.trim()).filter(Boolean);
+    let changed = false;
+    for (const p of pkgs) {
+      if (!list.includes(p)) {
+        list.push(p);
+        changed = true;
+      }
+    }
+    if (changed) await FileSystem.writeAsStringAsync(f, list.join(","));
+  } catch {}
 }

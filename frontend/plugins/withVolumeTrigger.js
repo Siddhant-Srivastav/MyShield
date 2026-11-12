@@ -60,6 +60,9 @@ object SecureAccess {
 
     private fun baseList(): List<String> {
         return listOf(
+            "money.super.payments",
+            "org.altruist.BajajExperia",
+            "com.naviapp",
             "net.one97.paytm",
             "com.phonepe.app",
             "com.google.android.apps.nbu.paisa.user",
