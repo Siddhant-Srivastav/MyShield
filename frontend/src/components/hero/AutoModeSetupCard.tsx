@@ -12,8 +12,8 @@ export default function AutoModeSetupCard() {
       );
       await AsyncStorage.setItem("payment_mode", "1");
       Alert.alert(
-        "⏸️ Trigger Pause ho raha hai",
-        "3-5 second me Volume Trigger band ho jayega.\n\nAb payment app kholo — koi accessibility warning NAHI aayegi."
+        "Trigger pausing",
+        "Volume Trigger will turn OFF in 3-5 seconds.\n\nYou can now open payment apps without any accessibility warning."
       );
     } catch (e) {
       Alert.alert("Error", String(e));
@@ -24,8 +24,8 @@ export default function AutoModeSetupCard() {
     try {
       await AsyncStorage.setItem("payment_mode", "0");
       Alert.alert(
-        "🛡️ Trigger Resume",
-        "Accessibility page khul raha hai — 'MyShield Volume Trigger' ko ON kar do. Bas!"
+        "Trigger resume",
+        "Opening Accessibility settings - turn ON 'MyShield Volume Trigger'. That's it!"
       );
       await Linking.sendIntent("android.settings.ACCESSIBILITY_SETTINGS");
     } catch (e) {
@@ -38,15 +38,15 @@ export default function AutoModeSetupCard() {
       <Text style={styles.title}>💳 Payment Mode</Text>
 
       <TouchableOpacity style={[styles.btn, { backgroundColor: "#DC2626" }]} onPress={pauseNow}>
-        <Text style={styles.btnText}>⏸️ Payment se pehle PAUSE karo</Text>
+        <Text style={styles.btnText}>⏸️ PAUSE before payment</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.btn, { backgroundColor: "#16A34A" }]} onPress={resumeNow}>
-        <Text style={styles.btnText}>🛡️ Payment ke baad RESUME karo</Text>
+        <Text style={styles.btnText}>🛡️ RESUME after payment</Text>
       </TouchableOpacity>
 
       <Text style={styles.hint}>
-        Flow: PAUSE → 5 sec ruko → payment app kholo (warning nahi aayegi) → payment karo → wapas aao → RESUME → trigger ON.
+        Flow: PAUSE → wait 5 sec → open payment app (no warning) → pay → come back → RESUME → trigger ON.
       </Text>
     </View>
   );

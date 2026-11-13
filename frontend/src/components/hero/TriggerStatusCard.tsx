@@ -30,9 +30,9 @@ export default function TriggerStatusCard() {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>⚠️ Volume Trigger ruk gaya hai</Text>
+      <Text style={styles.title}>⚠️ Volume Trigger stopped</Text>
       <Text style={styles.sub}>
-        Service band hai (update/restart/battery ki wajah se). Neeche tap karo aur Accessibility me trigger ON karo.
+        The trigger service stopped (after an update, restart or battery restriction). Tap below and turn ON the trigger in Accessibility settings.
       </Text>
       <TouchableOpacity
         style={styles.btn}
@@ -44,7 +44,7 @@ export default function TriggerStatusCard() {
           }
         }}
       >
-        <Text style={styles.btnText}>🔧 Trigger FIX karo</Text>
+        <Text style={styles.btnText}>🔧 FIX Trigger</Text>
       </TouchableOpacity>
     </View>
   );

@@ -178,8 +178,8 @@ class MyShieldBootReceiver : BroadcastReceiver() {
             )
             val nb = android.app.Notification.Builder(context, "myshield-boot")
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setContentTitle("MyShield: phone restart hua")
-                .setContentText("Protection shuru karne ke liye tap karo")
+                .setContentTitle("MyShield: phone restarted")
+                .setContentText("Tap to start protection")
                 .setContentIntent(pi)
                 .setAutoCancel(true)
             nm.notify(9991, nb.build())
@@ -262,7 +262,6 @@ module.exports = function withVolumeTrigger(config) {
       fs.writeFileSync(path.join(kotlinDir, "VolumeTriggerService.kt"), SERVICE_KOTLIN(pkg), "utf8");
       fs.writeFileSync(path.join(kotlinDir, "MyShieldBootReceiver.kt"), BOOT_RECEIVER_KOTLIN(pkg), "utf8");
 
-      // Purane auto-mode files hata do (watchdog/resume/secureaccess ab zaroori nahi)
       for (const old of ["MyShieldWatchdogService.kt", "MyShieldResumeReceiver.kt", "SecureAccess.kt"]) {
         try { fs.unlinkSync(path.join(kotlinDir, old)); } catch (e) {}
       }
@@ -280,12 +279,12 @@ module.exports = function withVolumeTrigger(config) {
       if (!strings.includes("volume_trigger_desc")) {
         strings = strings.replace(
           "</resources>",
-          `    <string name="volume_trigger_desc">MyShield: Volume UP + Volume DOWN dono ek saath dabakar emergency alert bhejo.</string>\n</resources>`
+          `    <string name="volume_trigger_desc">MyShield: Press Volume UP and Volume DOWN together to send an emergency alert.</string>\n</resources>`
         );
         fs.writeFileSync(stringsPath, strings, "utf8");
       }
 
-      console.log("✅ withVolumeTrigger v12: simple manual pause/resume only");
+      console.log("✅ withVolumeTrigger v14: full English");
       return cfg;
     },
   ]);

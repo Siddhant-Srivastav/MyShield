@@ -183,13 +183,6 @@ export default function EmergencyContactsScreen() {
   }
 
   function handleRemoveContact(contact: EmergencyContact, index: number) {
-    if (contacts.length <= 1) {
-      Alert.alert(
-        "Cannot remove contact",
-        "MyShield requires at least 2 emergency contacts."
-      );
-      return;
-    }
     Alert.alert(
       "Remove contact?",
       `Are you sure you want to remove ${contact.name}?`,

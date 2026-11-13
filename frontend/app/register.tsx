@@ -43,11 +43,9 @@ export default function Register() {
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
   
-  // ✅ NAYA: Loading state + retry counter
   const [loading, setLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
-  // ✅ NAYA: Auto-retry register function
   async function handleRegister(attempt: number = 1) {
     if (!name.trim() || !mobile.trim()) {
       Alert.alert("Missing Information", "Please enter your name and mobile number.");
@@ -59,12 +57,27 @@ export default function Register() {
       return;
     }
 
+    // ✅ NAYA: Minimum 2 emergency contacts check
+    const rawContacts = await AsyncStorage.getItem("emergency_contacts");
+    let contactList: any[] = [];
+    try {
+      contactList = rawContacts ? JSON.parse(rawContacts) : [];
+    } catch {}
+    if (!Array.isArray(contactList) || contactList.length < 2) {
+      Alert.alert(
+        "Emergency Contacts Required",
+        "Please add at least 2 emergency contacts before creating your account.",
+        [{ text: "Add Contacts", onPress: () => router.push("/contacts") }]
+      );
+      return;
+    }
+
     setLoading(true);
     setRetryCount(attempt);
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 sec timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       const response = await fetch("https://myshield-api.onrender.com/api/users/register", {
         method: "POST",
@@ -74,7 +87,7 @@ export default function Register() {
           phone: mobile.trim(),
           email: email.trim(),
           preferred_language: "English",
-          emergency_contacts: [],
+          emergency_contacts: contactList,
         }),
         signal: controller.signal,
       });
@@ -106,7 +119,6 @@ export default function Register() {
     } catch (error: any) {
       console.log("Registration error:", error);
       
-      // ✅ NAYA: Auto-retry logic (max 2 attempts)
       if (attempt < 3 && (error.name === "AbortError" || error.message.includes("network"))) {
         console.log(`Server waking up... Retry ${attempt + 1}/3 in 3 seconds`);
         setLoading(false);
