@@ -1,36 +1,29 @@
 import notifee, { AndroidImportance, AndroidVisibility } from "@notifee/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform, Vibration, Linking } from "react-native";
+import { Platform, Vibration } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 
 const PROTECTION_KEY = "protection_enabled";
 const NOTIF_SHOWN_KEY = "notif_already_shown";
-const PAYMENT_MODE_KEY = "payment_mode";
 export const CHANNEL_ID = "myshield-protection";
 export const NOTIF_ID = "myshield-protection-active";
 
-// ---------- Permission ----------
 export async function requestNotificationPermission(): Promise<boolean> {
   if (Platform.OS !== "android") return false;
   const settings = await notifee.requestPermission();
   return settings.authorizationStatus >= 1;
 }
 
-// ---------- State ----------
 export async function isProtectionEnabled(): Promise<boolean> {
   const v = await AsyncStorage.getItem(PROTECTION_KEY);
   return v === "1";
 }
 
-// ---------- ENABLE: persistent lock-screen notification ----------
 export async function enableProtection(): Promise<boolean> {
   if (Platform.OS !== "android") return false;
-    await seedFinanceApps();
-
   const ok = await requestNotificationPermission();
   if (!ok) return false;
 
-  // Notification already shown hai to dobara post mat karo (spam fix)
   const alreadyShown = await AsyncStorage.getItem(NOTIF_SHOWN_KEY);
   if (alreadyShown === "1") {
     await AsyncStorage.setItem(PROTECTION_KEY, "1");
@@ -43,7 +36,6 @@ export async function enableProtection(): Promise<boolean> {
     return true;
   }
 
-  // Channel sirf ek baar banao
   const channels = await notifee.getChannels();
   const channelExists = channels.some((ch) => ch.id === CHANNEL_ID);
   if (!channelExists) {
@@ -57,7 +49,6 @@ export async function enableProtection(): Promise<boolean> {
     });
   }
 
-  // Ek baar chhota vibration feedback
   Vibration.vibrate(200);
 
   await notifee.displayNotification({
@@ -75,10 +66,7 @@ export async function enableProtection(): Promise<boolean> {
       actions: [
         {
           title: "🚨 ALERT",
-          pressAction: {
-            id: "alert",
-            launchActivity: "default",
-          },
+          pressAction: { id: "alert", launchActivity: "default" },
         },
       ],
     },
@@ -86,115 +74,23 @@ export async function enableProtection(): Promise<boolean> {
 
   await AsyncStorage.setItem(PROTECTION_KEY, "1");
   await AsyncStorage.setItem(NOTIF_SHOWN_KEY, "1");
-
   try {
     await FileSystem.writeAsStringAsync(
       `${FileSystem.documentDirectory}protection_enabled_native`,
       "1"
     );
   } catch {}
-
   return true;
 }
 
-// ---------- DISABLE ----------
 export async function disableProtection(): Promise<void> {
   await notifee.cancelNotification(NOTIF_ID);
   await AsyncStorage.setItem(PROTECTION_KEY, "0");
   await AsyncStorage.removeItem(NOTIF_SHOWN_KEY);
-
   try {
     await FileSystem.writeAsStringAsync(
       `${FileSystem.documentDirectory}protection_enabled_native`,
       "0"
     );
-  } catch {}
-}
-
-// ---------- PAYMENT MODE (UPI/Banking apps ke liye) ----------
-export async function enterPaymentMode(): Promise<void> {
-  try {
-    await FileSystem.writeAsStringAsync(
-      `${FileSystem.documentDirectory}volume_trigger_selfdisable`,
-      "1"
-    );
-  } catch {}
-  await AsyncStorage.setItem(PAYMENT_MODE_KEY, "1");
-}
-
-export async function exitPaymentMode(): Promise<void> {
-  await AsyncStorage.setItem(PAYMENT_MODE_KEY, "0");
-  await openAccessibilitySettings();
-}
-
-export async function isPaymentMode(): Promise<boolean> {
-  return (await AsyncStorage.getItem(PAYMENT_MODE_KEY)) === "1";
-}
-
-// ---------- Native trigger status (watchdog/auto-pause se) ----------
-export async function isTriggerPausedNative(): Promise<boolean> {
-  try {
-    const s = await FileSystem.readAsStringAsync(
-      `${FileSystem.documentDirectory}volume_trigger_status`
-    );
-    return s.trim() === "paused" || s.trim() === "off";
-  } catch {
-    return false;
-  }
-}
-
-// ---------- Custom finance apps add karna ----------
-export async function addFinanceApp(pkg: string): Promise<void> {
-  try {
-    const f = `${FileSystem.documentDirectory}finance_apps_extra`;
-    let cur = "";
-    try {
-      cur = await FileSystem.readAsStringAsync(f);
-    } catch {}
-    if (!cur.includes(pkg)) {
-      cur = cur ? cur + "," + pkg : pkg;
-      await FileSystem.writeAsStringAsync(f, cur);
-    }
-  } catch {}
-}
-
-// ---------- Settings helpers (sendIntent = sahi tarika) ----------
-export async function openAccessibilitySettings(): Promise<void> {
-  try {
-    await Linking.sendIntent("android.settings.ACCESSIBILITY_SETTINGS");
-  } catch {
-    try {
-      await Linking.openSettings();
-    } catch {}
-  }
-}
-
-export async function openUsageAccessSettings(): Promise<void> {
-  try {
-    await Linking.sendIntent("android.settings.USAGE_ACCESS_SETTINGS");
-  } catch {
-    try {
-      await Linking.openSettings();
-    } catch {}
-  }
-}
-// ---------- Real finance apps seed (SuperMoney/Bajaj/Navi) ----------
-export async function seedFinanceApps(): Promise<void> {
-  try {
-    const pkgs = ["money.super.payments", "org.altruist.BajajExperia", "com.naviapp"];
-    const f = `${FileSystem.documentDirectory}finance_apps_extra`;
-    let cur = "";
-    try {
-      cur = await FileSystem.readAsStringAsync(f);
-    } catch {}
-    const list = cur.split(",").map((s) => s.trim()).filter(Boolean);
-    let changed = false;
-    for (const p of pkgs) {
-      if (!list.includes(p)) {
-        list.push(p);
-        changed = true;
-      }
-    }
-    if (changed) await FileSystem.writeAsStringAsync(f, list.join(","));
   } catch {}
 }

@@ -7,7 +7,7 @@ import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-c
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { isProtectionEnabled, enableProtection } from "../utils/protectionService";
-
+import ErrorBoundary from "../src/components/hero/ErrorBoundary";
 // Prevent auto hide
 SplashScreen.preventAutoHideAsync();
 
@@ -93,6 +93,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+    <ErrorBoundary> 
       <View style={{ flex: 1, backgroundColor: '#F4F7FA' }}>
         <Stack 
           screenOptions={{ 
@@ -102,6 +103,7 @@ export default function RootLayout() {
           }} 
         />
       </View>
+      </ErrorBoundary>  
     </SafeAreaProvider>
   );
 }

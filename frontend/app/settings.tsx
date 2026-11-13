@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { BottomNav } from "./home";
+import TriggerStatusCard from "../src/components/hero/TriggerStatusCard";
 
 const WEBSITE_URL = "https://myshield.ai.studio";
 const SUPPORT_EMAIL = "myshield360@gmail.com";
@@ -100,6 +101,7 @@ export default function SettingsScreen() {
             onPress={() => router.push("/protection")}
           />
         </View>
+        <TriggerStatusCard />
         <AutoModeSetupCard />
         {/* PREFERENCES */}
         <Text style={styles.sectionTitle}>PREFERENCES</Text>

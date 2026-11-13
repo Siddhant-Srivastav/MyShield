@@ -3,8 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from "react-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 
-const ADB_CMD = "adb shell pm grant com.myshield.app android.permission.WRITE_SECURE_SETTINGS";
-
 export default function AutoModeSetupCard() {
   const pauseNow = async () => {
     try {
@@ -35,40 +33,20 @@ export default function AutoModeSetupCard() {
     }
   };
 
-  const openUsage = async () => {
-    try {
-      await Linking.sendIntent("android.settings.USAGE_ACCESS_SETTINGS");
-    } catch (e) {
-      try { await Linking.openSettings(); } catch (e2) {}
-    }
-  };
-
-  const showCmd = () => {
-    Alert.alert("ADB Command (optional)", ADB_CMD + "\n\n(text long-press karke copy karo)");
-  };
-
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>⚡ Auto-Mode / Payment Setup</Text>
+      <Text style={styles.title}>💳 Payment Mode</Text>
 
       <TouchableOpacity style={[styles.btn, { backgroundColor: "#DC2626" }]} onPress={pauseNow}>
-        <Text style={styles.btnText}>💳 Payment se pehle PAUSE karo</Text>
+        <Text style={styles.btnText}>⏸️ Payment se pehle PAUSE karo</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.btn, { backgroundColor: "#16A34A" }]} onPress={resumeNow}>
         <Text style={styles.btnText}>🛡️ Payment ke baad RESUME karo</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.btn, { backgroundColor: "#1A56DB" }]} onPress={openUsage}>
-        <Text style={styles.btnText}>👀 Usage Access kholo</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={showCmd}>
-        <Text style={styles.cmd}>📋 ADB command (optional 1-tap magic)</Text>
-      </TouchableOpacity>
-
       <Text style={styles.hint}>
-        Flow: PAUSE dabao → 5 sec ruko → payment app kholo (warning nahi aayegi) → payment karo → wapas aao → RESUME dabao → trigger ON.
+        Flow: PAUSE → 5 sec ruko → payment app kholo (warning nahi aayegi) → payment karo → wapas aao → RESUME → trigger ON.
       </Text>
     </View>
   );
@@ -87,6 +65,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: "800", color: "#166534", marginBottom: 10 },
   btn: { borderRadius: 12, paddingVertical: 13, alignItems: "center", marginBottom: 8 },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
-  cmd: { color: "#1D4ED8", textDecorationLine: "underline", fontSize: 13, marginTop: 4 },
-  hint: { fontSize: 12, color: "#166534", fontStyle: "italic", marginTop: 8, lineHeight: 17 },
+  hint: { fontSize: 12, color: "#166534", fontStyle: "italic", marginTop: 4, lineHeight: 17 },
 });
