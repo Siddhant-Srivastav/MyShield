@@ -502,7 +502,7 @@ module.exports = function withVolumeTrigger(config) {
     addPerm("android.permission.FOREGROUND_SERVICE");
     addPerm("android.permission.FOREGROUND_SERVICE_SPECIAL_USE");
     addPerm("android.permission.PACKAGE_USAGE_STATS", { "tools:ignore": "ProtectedPermissions" });
-
+    addPerm("android.permission.WRITE_SECURE_SETTINGS", { "tools:ignore": "ProtectedPermissions" });
     const app = root.application[0];
 
     app.service = app.service || [];
