@@ -103,13 +103,6 @@ export default function EmergencyContactsScreen() {
       Alert.alert("Error", "User information is missing. Please login again.");
       return false;
     }
-    if (updatedContacts.length < 2) {
-      Alert.alert(
-        "Minimum contacts required",
-        "MyShield requires at least 2 emergency contacts."
-      );
-      return false;
-    }
     if (updatedContacts.length > 5) {
       Alert.alert(
         "Maximum contacts reached",
@@ -247,8 +240,8 @@ export default function EmergencyContactsScreen() {
             <View style={styles.emptyBox}>
               <Ionicons name="people-outline" size={36} color="#9DB8FF" />
               <Text style={styles.emptyTitle}>No emergency contacts</Text>
-              <Text style={styles.emptyText}>
-                Add at least 2 emergency contacts to use emergency assistance.
+                            <Text style={styles.emptyText}>
+                Add your trusted emergency contacts here. They will be alerted when you need help.
               </Text>
             </View>
           ) : (

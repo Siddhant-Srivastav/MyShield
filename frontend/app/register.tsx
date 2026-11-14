@@ -57,21 +57,6 @@ export default function Register() {
       return;
     }
 
-    // ✅ NAYA: Minimum 2 emergency contacts check
-    const rawContacts = await AsyncStorage.getItem("emergency_contacts");
-    let contactList: any[] = [];
-    try {
-      contactList = rawContacts ? JSON.parse(rawContacts) : [];
-    } catch {}
-    if (!Array.isArray(contactList) || contactList.length < 2) {
-      Alert.alert(
-        "Emergency Contacts Required",
-        "Please add at least 2 emergency contacts before creating your account.",
-        [{ text: "Add Contacts", onPress: () => router.push("/contacts") }]
-      );
-      return;
-    }
-
     setLoading(true);
     setRetryCount(attempt);
 
@@ -87,7 +72,7 @@ export default function Register() {
           phone: mobile.trim(),
           email: email.trim(),
           preferred_language: "English",
-          emergency_contacts: contactList,
+          emergency_contacts: [],
         }),
         signal: controller.signal,
       });
