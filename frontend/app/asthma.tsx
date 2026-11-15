@@ -151,7 +151,7 @@ export default function AsthmaScreen() {
             />
           </View>
           <Text style={[styles.listenText, speaking && { color: "#FFFFFF" }]}>
-            {speaking ? "Speaking… tap to stop" : "Listen to these guidelines"}
+            {speaking ? "Speaking… tap to stop" : "Listen v21"}
           </Text>
         </Pressable>
 
