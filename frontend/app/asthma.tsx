@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,11 +21,21 @@ const guidelines = [
   { id: 5, text: "Warm Mist / Steam (हल्की गर्म भाप का उपयोग): हल्की गर्म भाप या स्टीमी बाथरूम में बैठने से राहत मिलती है।", emoji: "🚿" },
 ];
 
-const SPEECH_TEXT =
+const SPEECH_TEXT_HINDI =
   "Asthma attack आपातकालीन मार्गदर्शन। " +
   guidelines.map((g) => g.text).join(" ") +
   " महत्वपूर्ण चेतावनी: साइलेंट चेस्ट। यदि सीटी जैसी आवाज़ अचानक बंद हो जाए और सांस बहुत कठिन हो रही हो, तो यह सुधार नहीं बल्कि वायुमार्ग पूरी तरह बंद होने का संकेत हो सकता है। तुरंत मेडिकल सहायता लें।" +
   " यह मार्गदर्शन अस्थायी आपातकालीन सहायता है और पेशेवर चिकित्सा उपचार का विकल्प नहीं है।";
+
+const SPEECH_TEXT_ENGLISH =
+  "Asthma attack emergency guidance. " +
+  "Step 1: Pursed-lip breathing. Inhale through nose for 2 seconds, exhale slowly through pursed lips for 4 seconds. " +
+  "Step 2: Tripod position. Lean forward, rest both hands on knees or a table. " +
+  "Step 3: Warm black coffee or tea. Give 1-2 cups of warm black coffee or tea. " +
+  "Step 4: Remove triggers. Immediately move away from smoke, incense, perfume, dust, and cold air. " +
+  "Step 5: Warm mist or steam. Sitting in warm mist or a steamy bathroom provides relief. " +
+  "Important warning: Silent chest. If wheezing suddenly stops and breathing becomes very difficult, this is not improvement but a sign of complete airway blockage. Seek medical help immediately. " +
+  "This guidance is temporary emergency assistance and not a substitute for professional medical treatment.";
 
 export default function AsthmaScreen() {
   const router = useRouter();
@@ -36,22 +47,51 @@ export default function AsthmaScreen() {
     setSpeaking(false);
   };
 
-  const startSpeaking = () => {
-    Speech.stop();
-    setSpeaking(true);
-    Speech.speak(SPEECH_TEXT, {
-      language: "hi-IN",
-      rate: 0.95,
-      pitch: 1,
-      onDone: () => setSpeaking(false),
-      onStopped: () => setSpeaking(false),
-      onError: () => setSpeaking(false),
-    });
+  const startSpeaking = async () => {
+    try {
+      await Speech.stop();
+      setSpeaking(true);
+
+      // Default Hindi, fallback English if Hindi voice nahi hai
+      let lang = "hi-IN";
+      let text = SPEECH_TEXT_HINDI;
+      try {
+        const voices = await Speech.getAvailableVoicesAsync();
+        const hasHindi = voices.some((v) => (v.language || "").startsWith("hi"));
+        if (!hasHindi && voices.length > 0) {
+          lang = "en-IN";
+          text = SPEECH_TEXT_ENGLISH;
+        }
+      } catch (e) {
+        console.log("Voice detection failed, using Hindi default", e);
+      }
+
+      Speech.speak(text, {
+        language: lang,
+        rate: 0.95,
+        pitch: 1,
+        volume: 1.0,
+        onDone: () => setSpeaking(false),
+        onStopped: () => setSpeaking(false),
+        onError: (e) => {
+          console.log("TTS Error:", e);
+          setSpeaking(false);
+          Alert.alert(
+            "Speech Error",
+            "Unable to play audio. Please check media volume and try again."
+          );
+        },
+      });
+    } catch (err) {
+      console.log("TTS Exception:", err);
+      setSpeaking(false);
+      Alert.alert("Error", "Speech system failed. Please try again.");
+    }
   };
 
   useEffect(() => {
     if (params.speak === "true") {
-      const t = setTimeout(() => startSpeaking(), 600);
+      const t = setTimeout(() => startSpeaking(), 800);
       return () => {
         clearTimeout(t);
         Speech.stop();
@@ -68,7 +108,6 @@ export default function AsthmaScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* Back button */}
         <Pressable
           onPress={() => {
             stopSpeaking();
@@ -80,7 +119,6 @@ export default function AsthmaScreen() {
           <Ionicons name="arrow-back" size={20} color="#1A1A2E" />
         </Pressable>
 
-        {/* Header */}
         <View style={styles.headingRow}>
           <View style={styles.asthmaCircle}>
             <Text style={styles.asthmaEmoji}>🌬️</Text>
@@ -96,7 +134,6 @@ export default function AsthmaScreen() {
           इन दिशानिर्देशों का पालन करें और तुरंत मेडिकल सहायता लें।
         </Text>
 
-        {/* 🔊 Listen / Stop button */}
         <Pressable
           onPress={speaking ? stopSpeaking : startSpeaking}
           style={[styles.listenBtn, speaking && styles.listenBtnActive]}
@@ -118,7 +155,6 @@ export default function AsthmaScreen() {
           </Text>
         </Pressable>
 
-        {/* Guideline cards */}
         {guidelines.map((item) => (
           <View key={item.id} style={styles.guidelineCard}>
             <View style={styles.numberCircle}>
@@ -129,7 +165,6 @@ export default function AsthmaScreen() {
           </View>
         ))}
 
-        {/* ⚠️ Silent Chest warning */}
         <View style={styles.warningCard}>
           <View style={styles.warningIcon}>
             <Ionicons name="alert" size={20} color="#FFFFFF" />
@@ -146,7 +181,6 @@ export default function AsthmaScreen() {
           </View>
         </View>
 
-        {/* Bottom privacy box */}
         <View style={styles.bottomInfo}>
           <View style={styles.bottomShield}>
             <Ionicons name="shield-checkmark" size={22} color="#1A56DB" />
